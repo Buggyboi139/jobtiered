@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f14;
+      --glass: rgba(255,255,255,0.04);
+      --glass-border: rgba(255,255,255,0.10);
+      --glass-hover: rgba(255,255,255,0.07);
+      --text: #e8e8f0;
+      --text-muted: #7070a0;
+      --text-dim: #50507a;
+      --accent: #4a9eff;
+      --accent-glow: rgba(74,158,255,0.25);
+      --green: #4ade80;
+      --red: #f87171;
+      --gold: #fbbf24;
+      --orange: #fb923c;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      width: 400px;
+      min-height: 200px;
+      max-height: 620px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.12) transparent;
+    }
+
+    body::-webkit-scrollbar { width: 4px; }
+    body::-webkit-scrollbar-track { background: transparent; }
+    body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+    /* ── HEADER ───────────────────────────────────── */
+    .header {
+      padding: 16px 16px 12px;
+      background: linear-gradient(180deg, rgba(74,158,255,0.08) 0%, transparent 100%);
+      border-bottom: 1px solid var(--glass-border);
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    }
+
+    .header-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: linear-gradient(135deg, rgba(74,158,255,0.4), rgba(74,158,255,0.1));
+      border: 1px solid rgba(74,158,255,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .logo-text {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
+      background: linear-gradient(135deg, #e8e8f0 0%, #9090c0 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .logo-version {
+      font-size: 10px; color: var(--text-dim); font-weight: 400;
+      -webkit-text-fill-color: var(--text-dim); background: none;
+    }
+
+    /* ── LICENSE PILL ─────────────────────────────── */
+    .license-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .license-pill:hover { opacity: 0.8; }
+    .license-pill.valid   { background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); color: var(--green); }
+    .license-pill.byok    { background: rgba(74,158,255,0.12); border: 1px solid rgba(74,158,255,0.3); color: var(--accent); }
+    .license-pill.invalid { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3); color: var(--red); }
+    .license-pill.none    { background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.25); color: var(--gold); }
+    .license-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    /* ── STAT ROW ─────────────────────────────────── */
+    .stat-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px; margin-top: 0;
+    }
+
+    .stat-card {
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); padding: 7px 8px; text-align: center;
+    }
+    .stat-card .stat-val {
+      font-size: 15px; font-weight: 700; color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card .stat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── MODE SELECTOR ────────────────────────────── */
+    .mode-section { padding: 10px 16px 0; }
+
+    .mode-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+
+    .mode-toggle {
+      display: flex; gap: 4px; background: var(--glass);
+      border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+      padding: 3px;
+    }
+
+    .mode-btn {
+      flex: 1; padding: 6px 4px; border: none; border-radius: 4px;
+      background: transparent; color: var(--text-muted); cursor: pointer;
+      font-size: 11px; font-weight: 600; font-family: inherit;
+      transition: all 0.18s ease; white-space: nowrap;
+    }
+    .mode-btn:hover { color: var(--text); background: var(--glass-hover); }
+    .mode-btn.active {
+      background: rgba(74,158,255,0.18); color: var(--accent);
+      border: 1px solid rgba(74,158,255,0.3);
+    }
+
+    /* ── ACTIONS ──────────────────────────────────── */
+    .actions-section { padding: 10px 16px 0; display: flex; gap: 5px; }
+
+    .act-btn {
+      flex: 1; padding: 7px 6px; border-radius: var(--radius-sm);
+      font-size: 11px; font-weight: 600; font-family: inherit;
+      cursor: pointer; border: 1px solid var(--glass-border);
+      background: var(--glass); color: var(--text-muted);
+      transition: all 0.18s ease; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .act-btn:hover { background: var(--glass-hover); color: var(--text); border-color: rgba(255,255,255,0.18); }
+    .act-btn.danger  { color: var(--red); border-color: rgba(248,113,113,0.2); }
+    .act-btn.danger:hover  { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.4); }
+
+    /* ── KEYWORD TOGGLE ───────────────────────────── */
+    .toggle-row {
+      padding: 8px 16px 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .toggle-label { font-size: 11px; color: var(--text-muted); }
+    .toggle-switch {
+      position: relative; width: 30px; height: 16px; cursor: pointer;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 8px;
+      background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border);
+      transition: all 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: rgba(74,158,255,0.3); border-color: rgba(74,158,255,0.5);
+    }
+    .toggle-thumb {
+      position: absolute; top: 2px; left: 2px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--text-muted); transition: all 0.2s;
+    }
+    .toggle-switch input:checked ~ .toggle-thumb {
+      left: 16px; background: var(--accent);
+    }
+
+    /* ── DIVIDER ──────────────────────────────────── */
+    .divider {
+      height: 1px; background: var(--glass-border); margin: 12px 16px 0;
+    }
+
+    /* ── SAVED JOBS ───────────────────────────────── */
+    .saved-section { padding: 12px 16px 16px; }
+
+    .saved-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .saved-title { font-size: 12px; font-weight: 700; color: var(--text); }
+    .saved-count { font-size: 10px; color: var(--text-dim); }
+
+    .filter-tabs {
+      display: flex; gap: 4px; margin-bottom: 8px;
+    }
+    .filter-tab {
+      flex: 1; padding: 5px 4px; border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border); background: var(--glass);
+      color: var(--text-muted); font-size: 10px; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .filter-tab:hover { background: var(--glass-hover); color: var(--text); }
+    .filter-tab.active {
+      background: rgba(74,158,255,0.15); color: var(--accent);
+      border-color: rgba(74,158,255,0.3);
+    }
+
+    /* Pipeline selector */
+    .pipeline-select {
+      width: 100%; padding: 6px 10px; margin-bottom: 8px;
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); color: var(--text); font-family: inherit;
+      font-size: 11px; cursor: pointer;
+    }
+    .pipeline-select option { background: #1a1a28; }
+
+    .export-row { display: flex; gap: 4px; margin-bottom: 10px; }
+    .export-btn {
+      flex: 1; padding: 6px; border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border); background: var(--glass);
+      color: var(--text-muted); font-size: 10px; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+    }
+    .export-btn:hover { background: var(--glass-hover); color: var(--text); }
+
+    /* ── JOB ITEM ─────────────────────────────────── */
+    #savedJobsList {
+      max-height: 280px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
+    }
+    #savedJobsList::-webkit-scrollbar { width: 3px; }
+    #savedJobsList::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+    .job-item {
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 10px 11px; margin-bottom: 6px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .job-item:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.15); }
+    .job-item:last-child { margin-bottom: 0; }
+
+    .job-header { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 3px; }
+
+    .tier-badge {
+      flex-shrink: 0; display: inline-block; padding: 1px 6px;
+      border-radius: 4px; font-weight: 800; font-size: 10px;
+      letter-spacing: 0.06em; margin-top: 1px;
+    }
+    .tier-S { background: rgba(251,191,36,0.2); color: var(--gold); border: 1px solid rgba(251,191,36,0.35); }
+    .tier-A { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+    .tier-B { background: rgba(74,158,255,0.15); color: var(--accent); border: 1px solid rgba(74,158,255,0.3); }
+    .tier-C { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+    .tier-D { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+    .tier-F { background: rgba(220,38,38,0.2); color: #ff6b6b; border: 1px solid rgba(220,38,38,0.35); }
+
+    .job-title {
+      flex: 1; font-size: 12px; font-weight: 600; color: var(--text);
+      line-height: 1.35;
+    }
+    .job-title a { color: var(--accent); text-decoration: none; }
+    .job-title a:hover { text-decoration: underline; }
+
+    .job-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; line-height: 1.4; }
+    .job-pay  { font-size: 11px; color: var(--text-dim); }
+
+    .job-stage-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 10px;
+      font-size: 10px; font-weight: 600; margin-left: 4px;
+      background: rgba(255,255,255,0.06); color: var(--text-muted);
+      border: 1px solid var(--glass-border);
+    }
+    .stage-applied    { background: rgba(74,158,255,0.12); color: var(--accent); border-color: rgba(74,158,255,0.25); }
+    .stage-interview  { background: rgba(251,191,36,0.12); color: var(--gold); border-color: rgba(251,191,36,0.25); }
+    .stage-offer      { background: rgba(74,222,128,0.15); color: var(--green); border-color: rgba(74,222,128,0.3); }
+    .stage-rejected   { background: rgba(248,113,113,0.1); color: var(--red); border-color: rgba(248,113,113,0.2); }
+
+    .job-actions { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; }
+    .job-act-btn {
+      padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      font-family: inherit; cursor: pointer; border: 1px solid var(--glass-border);
+      background: var(--glass); color: var(--text-muted); transition: all 0.15s;
+    }
+    .job-act-btn:hover { background: var(--glass-hover); color: var(--text); }
+    .job-act-btn.primary   { background: rgba(74,158,255,0.15); color: var(--accent); border-color: rgba(74,158,255,0.3); }
+    .job-act-btn.primary:hover { background: rgba(74,158,255,0.28); }
+    .job-act-btn.success   { background: rgba(74,222,128,0.12); color: var(--green); border-color: rgba(74,222,128,0.3); }
+    .job-act-btn.success:hover { background: rgba(74,222,128,0.22); }
+    .job-act-btn.warn      { background: rgba(251,191,36,0.10); color: var(--gold); border-color: rgba(251,191,36,0.25); }
+    .job-act-btn.warn:hover { background: rgba(251,191,36,0.2); }
+    .job-act-btn.danger-sm { background: rgba(248,113,113,0.08); color: var(--red); border-color: rgba(248,113,113,0.2); }
+    .job-act-btn.danger-sm:hover { background: rgba(248,113,113,0.18); }
+
+    .empty-state { text-align: center; color: var(--text-dim); padding: 20px 0; font-size: 12px; }
+
+    /* ── COVER LETTER PANEL ───────────────────────── */
+    #coverLetterPanel { display: none; margin-top: 10px; }
+    #coverLetterPanel .panel-title {
+      font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px;
+    }
+    #coverLetterPanel textarea {
+      width: 100%; height: 180px; background: rgba(0,0,0,0.3);
+      border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 11px; font-family: system-ui, sans-serif;
+      padding: 10px; resize: vertical; line-height: 1.5;
+    }
+    #coverLetterPanel textarea:focus { outline: none; border-color: rgba(74,158,255,0.4); }
+    #coverLetterPanel .panel-actions { display: flex; gap: 5px; margin-top: 6px; }
+
+    /* ── INTERVIEW PANEL ──────────────────────────── */
+    #interviewPanel { display: none; margin-top: 10px; }
+    #interviewPanel .panel-title {
+      font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px;
+    }
+    #interviewQuestions {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); padding: 10px; max-height: 180px; overflow-y: auto;
+      font-size: 11px; color: var(--text-muted); line-height: 1.6;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
+    }
+    #interviewPanel .panel-actions { display: flex; gap: 5px; margin-top: 6px; }
+
+    /* ── STAGE DROPDDOWN ──────────────────────────── */
+    .stage-select {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border);
+      border-radius: 4px; color: var(--text-muted); font-size: 10px;
+      padding: 3px 6px; font-family: inherit; cursor: pointer;
+    }
+    .stage-select:focus { outline: none; border-color: rgba(74,158,255,0.3); }
+    .stage-select option { background: #1a1a28; }
+
+    /* ── SCROLLBAR GLOBAL ─────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">🎯</div>
+        <div>
+          <div class="logo-text">Job Tier Rater Pro <span class="logo-version">v5</span></div>
+        </div>
+      </div>
+      <div id="licensePill" class="license-pill none" title="Click to manage license">
+        <div class="dot"></div>
+        <span id="licenseLabel">No License</span>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-val" id="apiTokens">0</div>
+        <div class="stat-lbl">Tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="cacheCount">0</div>
+        <div class="stat-lbl">Cached</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="savedCount">0</div>
+        <div class="stat-lbl">Saved</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mode-section">
+    <div class="mode-label">Evaluation Mode</div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modePersonal">🎯 Personal Fit</button>
+      <button class="mode-btn" id="modeObjective">🕵️ Objective</button>
+    </div>
+  </div>
+
+  <div class="toggle-row">
+    <span class="toggle-label">✨ Highlight resume keywords in descriptions</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="keywordHighlight">
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+  </div>
+
+  <div class="actions-section">
+    <button class="act-btn" id="openOptions">⚙️ Settings</button>
+    <button class="act-btn" id="clearCache">🗑 Clear Cache</button>
+    <button class="act-btn danger" id="clearSaved">✕ Clear All</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="saved-section">
+    <div class="saved-header">
+      <span class="saved-title">Saved S &amp; A Jobs</span>
+      <span class="saved-count" id="savedCountLabel"></span>
+    </div>
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" id="filterAll">All</button>
+      <button class="filter-tab" id="filterApplied">Applied</button>
+      <button class="filter-tab" id="filterPending">Pending</button>
+      <button class="filter-tab" id="filterInterview">Interview</button>
+    </div>
+
+    <select id="pipelineFilter" class="pipeline-select">
+      <option value="">— Filter by Stage —</option>
+      <option value="saved">Saved</option>
+      <option value="applied">Applied</option>
+      <option value="interview">Interview</option>
+      <option value="offer">Offer</option>
+      <option value="rejected">Rejected</option>
+    </select>
+
+    <div class="export-row">
+      <button class="export-btn" id="exportCsv">📄 CSV</button>
+      <button class="export-btn" id="exportJson">📦 JSON</button>
+    </div>
+
+    <div id="savedJobsList"></div>
+
+    <div id="coverLetterPanel">
+      <div class="panel-title" id="coverLetterTitle">Cover Letter</div>
+      <textarea id="coverLetterText" readonly></textarea>
+      <div class="panel-actions">
+        <button class="act-btn" id="copyCoverLetter">📋 Copy</button>
+        <button class="act-btn" id="closeCoverLetter">✕ Close</button>
+      </div>
+    </div>
+
+    <div id="interviewPanel">
+      <div class="panel-title" id="interviewTitle">Interview Prep</div>
+      <div id="interviewQuestions"></div>
+      <div class="panel-actions">
+        <button class="act-btn" id="copyInterview">📋 Copy</button>
+        <button class="act-btn" id="closeInterview">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

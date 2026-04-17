@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Job Tier Rater Pro",
+  "version": "5.0",
+  "description": "AI-powered job grading on LinkedIn, Indeed, Glassdoor, and ZipRecruiter.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "downloads",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://openrouter.ai/api/*",
+    "https://*.supabase.co/*",
+    "*://*.linkedin.com/*",
+    "*://*.indeed.com/*",
+    "*://*.glassdoor.com/*",
+    "*://*.ziprecruiter.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/favicon-16x16.png",
+      "32": "images/favicon-32x32.png",
+      "192": "images/android-chrome-192x192.png",
+      "512": "images/android-chrome-512x512.png"
+    }
+  },
+  "icons": {
+    "16": "images/favicon-16x16.png",
+    "32": "images/favicon-32x32.png",
+    "192": "images/android-chrome-192x192.png",
+    "512": "images/android-chrome-512x512.png"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://*.linkedin.com/feed/*",
+        "*://*.indeed.com/*",
+        "*://*.glassdoor.com/Job/*",
+        "*://*.glassdoor.com/job-listing/*",
+        "*://*.glassdoor.com/Search/*",
+        "*://*.glassdoor.com/Jobs/*",
+        "*://*.glassdoor.com/partner/*",
+        "*://*.ziprecruiter.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

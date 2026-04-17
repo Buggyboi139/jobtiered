@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Job Tier Rater Pro — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d12;
+      --surface: rgba(255,255,255,0.036);
+      --surface-hover: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.09);
+      --border-focus: rgba(74,158,255,0.45);
+      --text: #e8e8f0;
+      --text-muted: #7070a0;
+      --text-dim: #44445a;
+      --accent: #4a9eff;
+      --accent-glow: rgba(74,158,255,0.2);
+      --green: #4ade80;
+      --red: #f87171;
+      --gold: #fbbf24;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    html { min-height: 100%; background: var(--bg); }
+
+    body {
+      max-width: 560px; margin: 0 auto; padding: 32px 20px 48px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px; color: var(--text); line-height: 1.5;
+      background: var(--bg);
+    }
+
+    /* ── PAGE HEADER ──────────────────────────────── */
+    .page-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+    }
+    .page-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(74,158,255,0.35), rgba(74,158,255,0.08));
+      border: 1px solid rgba(74,158,255,0.3);
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+      flex-shrink: 0;
+    }
+    .page-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+    .page-sub   { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── CARD ─────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px; margin-bottom: 14px;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-muted); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .card-title .pill {
+      font-size: 9px; padding: 1px 6px; border-radius: 8px;
+      background: rgba(74,158,255,0.15); color: var(--accent);
+      border: 1px solid rgba(74,158,255,0.25); text-transform: none;
+      letter-spacing: .03em;
+    }
+
+    /* ── FORM ─────────────────────────────────────── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block; font-size: 11px; font-weight: 600;
+      color: var(--text-muted); margin-bottom: 6px; letter-spacing: .02em;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="email"],
+    textarea,
+    select {
+      width: 100%; padding: 9px 12px;
+      background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-family: inherit; font-size: 13px;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    input::placeholder, textarea::placeholder { color: var(--text-dim); }
+
+    textarea {
+      height: 160px; resize: vertical; font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 12px; line-height: 1.6;
+    }
+
+    select { cursor: pointer; }
+    select option { background: #1a1a28; }
+
+    .hint {
+      font-size: 11px; color: var(--text-dim); margin-top: 5px; line-height: 1.5;
+    }
+    .hint a { color: var(--accent); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    /* ── MODE TOGGLE ──────────────────────────────── */
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mode-card {
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 12px 14px; cursor: pointer; transition: all 0.18s;
+      background: rgba(0,0,0,0.2);
+    }
+    .mode-card:hover { border-color: rgba(74,158,255,0.3); background: rgba(74,158,255,0.05); }
+    .mode-card.active {
+      border-color: rgba(74,158,255,0.5); background: rgba(74,158,255,0.1);
+    }
+    .mode-card .mode-title { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+    .mode-card .mode-desc  { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+    .mode-card.active .mode-title { color: var(--accent); }
+
+    /* ── LICENSE STATUS BOX ───────────────────────── */
+    .status-box {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 14px;
+      font-size: 12px;
+    }
+    .status-box.valid   { background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+    .status-box.invalid { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
+    .status-box.none    { background: rgba(251,191,36,0.06);  border: 1px solid rgba(251,191,36,0.18); }
+    .status-box.byok    { background: rgba(74,158,255,0.08);  border: 1px solid rgba(74,158,255,0.2); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-box.valid   .status-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-box.invalid .status-dot { background: var(--red); }
+    .status-box.none    .status-dot { background: var(--gold); }
+    .status-box.byok    .status-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .status-text { flex: 1; color: var(--text); }
+    .status-sub  { font-size: 10px; color: var(--text-muted); }
+
+    /* ── BUTTONS ──────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 18px; border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      border: 1px solid transparent; transition: all 0.18s ease;
+    }
+    .btn-block { width: 100%; }
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(74,158,255,0.35), rgba(74,158,255,0.18));
+      border-color: rgba(74,158,255,0.45); color: var(--accent);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(74,158,255,0.5), rgba(74,158,255,0.28));
+      box-shadow: 0 4px 16px rgba(74,158,255,0.2);
+    }
+    .btn-ghost {
+      background: var(--surface); border-color: var(--border); color: var(--text-muted);
+    }
+    .btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+    .btn-danger {
+      background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); color: var(--red);
+    }
+    .btn-danger:hover { background: rgba(248,113,113,0.2); }
+    .btn-sm { padding: 6px 12px; font-size: 11px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+
+    /* ── SAVE BANNER ──────────────────────────────── */
+    #saveBanner {
+      display: none; position: fixed; bottom: 20px; left: 50%;
+      transform: translateX(-50%); white-space: nowrap;
+      padding: 10px 20px; border-radius: 20px;
+      background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.35);
+      color: var(--green); font-size: 12px; font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 999;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(-50%) translateY(6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+    #errBanner {
+      display: none; margin-top: 10px; padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25);
+      color: var(--red); font-size: 12px;
+    }
+
+    /* ── DIVIDER ──────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); margin: 6px 0 14px; }
+
+    /* ── VALIDATION SPINNER ───────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid rgba(74,158,255,0.2); border-top-color: var(--accent);
+      animation: spin .7s linear infinite; vertical-align: middle; margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div class="page-icon">🎯</div>
+    <div>
+      <div class="page-title">Job Tier Rater Pro</div>
+      <div class="page-sub">Settings &amp; License — v5.0</div>
+    </div>
+  </div>
+
+  <!-- ── LICENSE / ACCESS ─────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🔑 Access &amp; License</div>
+
+    <div id="licenseStatusBox" class="status-box none">
+      <div class="status-dot"></div>
+      <div>
+        <div class="status-text" id="licenseStatusText">No license configured</div>
+        <div class="status-sub" id="licenseStatusSub">Enter a license key below or switch to BYOK mode</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Access Mode</label>
+      <div class="mode-grid">
+        <div class="mode-card active" id="modeByok" data-mode="byok">
+          <div class="mode-title">🔓 BYOK</div>
+          <div class="mode-desc">Bring your own OpenRouter key. Pay-as-you-go.</div>
+        </div>
+        <div class="mode-card" id="modeSubscription" data-mode="subscription">
+          <div class="mode-title">⚡ Subscription</div>
+          <div class="mode-desc">License key unlocks access. No API key needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="byokSection">
+      <div class="field">
+        <label>OpenRouter API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-or-v1-…" autocomplete="off">
+        <div class="hint">Get a key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>. Stored locally, never transmitted except to OpenRouter.</div>
+      </div>
+    </div>
+
+    <div id="subscriptionSection" style="display:none;">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="licenseEmail" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>License Key</label>
+        <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+        <div class="hint">Purchase a license at <a href="https://jobtierpro.app" target="_blank">jobtierpro.app</a>.</div>
+      </div>
+      <div id="errBanner"></div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn btn-primary btn-sm" id="validateLicenseBtn">✓ Validate License</button>
+        <button class="btn btn-ghost btn-sm" id="clearLicenseBtn">Clear License</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PROFILE ──────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">👤 Your Profile</div>
+
+    <div class="field">
+      <label>Current Salary ($)</label>
+      <input type="number" id="currentSalary" placeholder="e.g. 80000">
+      <div class="hint">Optional. Used for relative pay grading.</div>
+    </div>
+    <div class="field">
+      <label>Minimum Desired Salary ($)</label>
+      <input type="number" id="minSalary" placeholder="e.g. 95000">
+      <div class="hint">Jobs paying below this threshold are graded more harshly.</div>
+    </div>
+    <div class="field">
+      <label>Resume — Plain Text</label>
+      <textarea id="resumeText" placeholder="Paste your resume here (plain text)…"></textarea>
+      <div class="hint">Used for personal fit scoring, cover letter generation, and keyword highlighting. Never sent to a server — only to OpenRouter for grading.</div>
+    </div>
+  </div>
+
+  <!-- ── SAVE BUTTON ──────────────────────────────── -->
+  <button class="btn btn-primary btn-block" id="saveSettings">💾 Save Settings</button>
+
+  <div id="saveBanner">✓ Settings saved!</div>
+
+  <script src="options.js"></script>
+</body>
+</html>
