@@ -1,7 +1,9 @@
 const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
+const STRIPE_SUB_LINK = "https://buy.stripe.com/14A5kE3lY0Fe4oy2L493y01";
+const STRIPE_BYOK_LINK = "https://buy.stripe.com/14A28scWy2Nm6wGbhA93y00";
 
-let currentMode = 'byok';
+let currentMode = 'subscription';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
@@ -14,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (data.minSalary)     document.getElementById('minSalary').value = data.minSalary;
   if (data.resumeText)    document.getElementById('resumeText').value = data.resumeText;
 
-  const mode = data.licenseMode || 'byok';
+  const mode = data.licenseMode || 'subscription';
   setAccessMode(mode, false);
   renderLicenseStatus(data.licenseStatus, data.licensePlan, mode, data.session);
 });
@@ -24,22 +26,35 @@ function setAccessMode(mode, animate = true) {
   document.getElementById('modeByok').classList.toggle('active', mode === 'byok');
   document.getElementById('modeSubscription').classList.toggle('active', mode === 'subscription');
   document.getElementById('byokSection').style.display = mode === 'byok' ? 'block' : 'none';
-  document.getElementById('subscriptionSection').style.display = mode === 'subscription' ? 'block' : 'none';
   if (animate) document.getElementById('errBanner').style.display = 'none';
 }
 
 document.getElementById('modeByok').addEventListener('click', () => {
   setAccessMode('byok');
   chrome.storage.local.set({ licenseMode: 'byok' });
-  renderLicenseStatus('byok', null, 'byok', null);
 });
 
 document.getElementById('modeSubscription').addEventListener('click', () => {
   setAccessMode('subscription');
   chrome.storage.local.set({ licenseMode: 'subscription' });
-  chrome.storage.local.get(['licenseStatus', 'licensePlan', 'session']).then(({ licenseStatus, licensePlan, session }) => {
-    renderLicenseStatus(licenseStatus, licensePlan, 'subscription', session);
-  });
+});
+
+document.getElementById('buySubBtn').addEventListener('click', async () => {
+  const { session } = await chrome.storage.local.get('session');
+  if (session?.user?.id) {
+    window.open(`${STRIPE_SUB_LINK}?client_reference_id=${session.user.id}`, '_blank');
+  } else {
+    showErr('Please log in first.');
+  }
+});
+
+document.getElementById('buyByokBtn').addEventListener('click', async () => {
+  const { session } = await chrome.storage.local.get('session');
+  if (session?.user?.id) {
+    window.open(`${STRIPE_BYOK_LINK}?client_reference_id=${session.user.id}`, '_blank');
+  } else {
+    showErr('Please log in first.');
+  }
 });
 
 document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -71,11 +86,11 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
       throw new Error(data.error_description || 'Login failed');
     }
 
-    await chrome.storage.local.set({ session: data, licenseMode: 'subscription' });
+    await chrome.storage.local.set({ session: data });
     
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
     
-    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, 'subscription', data);
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
     showSaveBanner('Logged in successfully!');
 
   } catch (error) {
@@ -91,7 +106,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
   document.getElementById('errBanner').style.display = 'none';
-  renderLicenseStatus('none', null, 'subscription', null);
+  renderLicenseStatus('none', null, currentMode, null);
 });
 
 document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -116,6 +131,12 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   showSaveBanner('Settings saved! Cache cleared.');
 });
 
+document.getElementById('refreshStatusBtn').addEventListener('click', async () => {
+  const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
+  const { session } = await chrome.storage.local.get('session');
+  renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, session);
+});
+
 function renderLicenseStatus(status, plan, mode, session) {
   const box  = document.getElementById('licenseStatusBox');
   const text = document.getElementById('licenseStatusText');
@@ -123,22 +144,15 @@ function renderLicenseStatus(status, plan, mode, session) {
   const loginForm = document.getElementById('loginForm');
   const loggedInView = document.getElementById('loggedInView');
   const userEmail = document.getElementById('userEmail');
-
-  if (mode === 'byok') {
-    box.className = 'status-box byok';
-    text.textContent = 'BYOK Mode';
-    sub.textContent  = 'Costs billed directly to your API key';
-    loginForm.style.display = 'none';
-    loggedInView.style.display = 'none';
-    return;
-  }
+  const purchaseOptions = document.getElementById('purchaseOptions');
 
   if (!session?.access_token) {
     box.className = 'status-box none';
     text.textContent = 'Not logged in';
-    sub.textContent  = 'Please login to access your subscription';
+    sub.textContent  = 'Please log in to manage your account';
     loginForm.style.display = 'block';
     loggedInView.style.display = 'none';
+    purchaseOptions.style.display = 'none';
     return;
   }
 
@@ -149,13 +163,23 @@ function renderLicenseStatus(status, plan, mode, session) {
   if (status === 'valid' || status === 'offline') {
     box.className = 'status-box valid';
     text.textContent = 'Active Subscription';
-    sub.textContent  = 'Your account is in good standing';
+    sub.textContent  = 'Your Pro account is in good standing';
+    purchaseOptions.style.display = 'none';
+    return;
+  }
+
+  if (status === 'lifetime') {
+    box.className = 'status-box byok';
+    text.textContent = 'Lifetime BYOK License';
+    sub.textContent  = 'Ensure your OpenRouter key is set in BYOK Mode';
+    purchaseOptions.style.display = 'none';
     return;
   }
 
   box.className = 'status-box invalid';
-  text.textContent = 'No Active Subscription';
-  sub.textContent  = 'Please subscribe to use JobTiered';
+  text.textContent = 'No Active License';
+  sub.textContent  = 'Please purchase a plan to continue';
+  purchaseOptions.style.display = 'flex';
 }
 
 function showErr(msg) {
