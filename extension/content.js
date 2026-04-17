@@ -630,7 +630,7 @@ async function checkLicense() {
     'licenseStatus', 'licenseMode', 'openRouterKey'
   ]);
   if (licenseMode === 'byok' && openRouterKey) return true;
-  if (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'byok') return true;
+  if (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'byok' || licenseStatus === 'lifetime') return true;
   return false;
 }
 

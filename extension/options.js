@@ -1,7 +1,8 @@
 const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
-const STRIPE_SUB_LINK = "https://buy.stripe.com/14A5kE3lY0Fe4oy2L493y01";
-const STRIPE_BYOK_LINK = "https://buy.stripe.com/14A28scWy2Nm6wGbhA93y00";
+const STRIPE_SUB_LINK = "https://buy.stripe.com/test_14A5kE3lY0Fe4oy2L493y01";
+const STRIPE_BYOK_LINK = "https://buy.stripe.com/test_14A28scWy2Nm6wGbhA93y00";
+const CANCEL_SUB_LINK = "https://CANCEL_SUBSCRIPTION_LINK_PLACEHOLDER";
 
 let currentMode = 'subscription';
 
@@ -91,7 +92,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 
   if (!email || !password) { showErr('Enter email and password.'); return; }
 
-  btn.textContent = 'Signing in…';
+  btn.textContent = 'Signing in\u2026';
   btn.disabled = true;
 
   try {
@@ -116,7 +117,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
 
     renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
-    showSaveBanner('Signed in successfully!');
+    showToast('Signed in successfully.', 'success');
 
   } catch (error) {
     showErr(error.message);
@@ -154,7 +155,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
     return;
   }
 
-  btn.textContent = 'Creating account…';
+  btn.textContent = 'Creating account\u2026';
   btn.disabled = true;
 
   try {
@@ -181,17 +182,17 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
       renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
 
       document.getElementById('onboardingBanner').style.display = 'block';
-      showSaveBanner('Account created! Choose a plan to get started.');
+      showToast('Account created. Choose a plan to get started.', 'success');
     } else {
       toggleToLogin();
       document.getElementById('loginEmail').value = email;
-      showErr('Account created! Check your email to confirm your address, then sign in here.');
+      showErr('Account created. Check your email to confirm your address, then sign in.');
     }
 
   } catch (error) {
     showErr(error.message);
   } finally {
-    btn.textContent = '🚀 Create Account';
+    btn.textContent = 'Create Account';
     btn.disabled = false;
   }
 });
@@ -203,13 +204,14 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('errBanner').style.display = 'none';
   document.getElementById('onboardingBanner').style.display = 'none';
   renderLicenseStatus('none', null, currentMode, null);
+  showToast('Signed out.', 'success');
 });
 
 document.getElementById('saveSettings').addEventListener('click', async () => {
-  const apiKey      = document.getElementById('apiKey').value.trim();
-  const salary      = document.getElementById('currentSalary').value;
-  const minSalary   = document.getElementById('minSalary').value;
-  const resumeText  = document.getElementById('resumeText').value;
+  const apiKey     = document.getElementById('apiKey').value.trim();
+  const salary     = document.getElementById('currentSalary').value;
+  const minSalary  = document.getElementById('minSalary').value;
+  const resumeText = document.getElementById('resumeText').value;
 
   const payload = {
     currentSalary: salary,
@@ -224,14 +226,50 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
 
   await chrome.storage.local.set(payload);
   await chrome.storage.local.remove(['gradeHistory', 'apiTokens']);
-  showSaveBanner('Settings saved! Cache cleared.');
+  showToast('Settings saved. Cache cleared.', 'success');
 });
 
 document.getElementById('refreshStatusBtn').addEventListener('click', async () => {
-  const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-  const { session } = await chrome.storage.local.get('session');
-  renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, session);
+  const btn = document.getElementById('refreshStatusBtn');
+  btn.textContent = 'Checking\u2026';
+  btn.disabled = true;
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
+    const { session } = await chrome.storage.local.get('session');
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, session);
+    showToast('License status updated.', 'success');
+  } finally {
+    btn.textContent = 'Refresh License Status';
+    btn.disabled = false;
+  }
 });
+
+document.getElementById('cancelSubBtn').addEventListener('click', () => {
+  window.open(CANCEL_SUB_LINK, '_blank');
+});
+
+document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+  document.getElementById('deleteConfirmOverlay').classList.add('visible');
+});
+
+document.getElementById('deleteConfirmCancel').addEventListener('click', () => {
+  document.getElementById('deleteConfirmOverlay').classList.remove('visible');
+});
+
+document.getElementById('deleteConfirmProceed').addEventListener('click', async () => {
+  document.getElementById('deleteConfirmOverlay').classList.remove('visible');
+  await handleDeleteAccount();
+});
+
+document.getElementById('deleteConfirmOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.remove('visible');
+  }
+});
+
+async function handleDeleteAccount() {
+  showToast('Account deletion requested. This feature will be connected shortly.', 'error');
+}
 
 function renderLicenseStatus(status, plan, mode, session) {
   const box  = document.getElementById('licenseStatusBox');
@@ -242,6 +280,7 @@ function renderLicenseStatus(status, plan, mode, session) {
   const loggedInView = document.getElementById('loggedInView');
   const userEmail = document.getElementById('userEmail');
   const purchaseOptions = document.getElementById('purchaseOptions');
+  const dangerZone = document.getElementById('dangerZone');
 
   if (!session?.access_token) {
     box.className = 'status-box none';
@@ -251,6 +290,7 @@ function renderLicenseStatus(status, plan, mode, session) {
     signupForm.style.display = 'none';
     loggedInView.style.display = 'none';
     purchaseOptions.style.display = 'none';
+    dangerZone.style.display = 'none';
     return;
   }
 
@@ -258,6 +298,7 @@ function renderLicenseStatus(status, plan, mode, session) {
   signupForm.style.display = 'none';
   loggedInView.style.display = 'block';
   userEmail.textContent = session.user.email;
+  dangerZone.style.display = 'block';
 
   if (status === 'valid' || status === 'offline') {
     box.className = 'status-box valid';
@@ -277,6 +318,15 @@ function renderLicenseStatus(status, plan, mode, session) {
     return;
   }
 
+  if (status === 'byok') {
+    box.className = 'status-box byok';
+    text.textContent = 'BYOK Mode';
+    sub.textContent  = 'Using your own API key \u2014 no subscription required';
+    purchaseOptions.style.display = 'none';
+    document.getElementById('onboardingBanner').style.display = 'none';
+    return;
+  }
+
   box.className = 'status-box invalid';
   text.textContent = 'No Active License';
   sub.textContent  = 'Choose a plan below to unlock all features';
@@ -290,9 +340,13 @@ function showErr(msg) {
   el.style.display = 'block';
 }
 
-function showSaveBanner(msg) {
-  const banner = document.getElementById('saveBanner');
-  banner.textContent = msg;
-  banner.style.display = 'block';
-  setTimeout(() => { banner.style.display = 'none'; }, 2500);
+let toastTimer = null;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = type;
+  void el.offsetWidth;
+  el.classList.add('visible');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('visible'); }, 3000);
 }

@@ -5,12 +5,13 @@ let allSavedJobs = [];
 const STAGES = ['saved', 'applied', 'interview', 'offer', 'rejected'];
 
 const LICENSE_LABELS = {
-  valid:   { text: 'Active',    cls: 'valid'   },
-  byok:    { text: 'BYOK',      cls: 'byok'    },
-  offline: { text: 'Offline',   cls: 'valid'   },
-  invalid: { text: 'Invalid',   cls: 'invalid' },
-  expired: { text: 'Expired',   cls: 'invalid' },
-  none:    { text: 'No License', cls: 'none'   }
+  valid:    { text: 'Active',    cls: 'valid'   },
+  lifetime: { text: 'Lifetime',  cls: 'valid'   },
+  byok:     { text: 'BYOK',      cls: 'byok'    },
+  offline:  { text: 'Offline',   cls: 'valid'   },
+  invalid:  { text: 'Invalid',   cls: 'invalid' },
+  expired:  { text: 'Expired',   cls: 'invalid' },
+  none:     { text: 'No License', cls: 'none'   }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -181,7 +182,7 @@ async function generateCoverLetter(index) {
   const { openRouterKey, resumeText, licenseMode, licenseStatus } = await chrome.storage.local.get([
     'openRouterKey', 'resumeText', 'licenseMode', 'licenseStatus'
   ]);
-  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'lifetime');
   if (!canUse) { showCoverLetter(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
   if (!job.description) { showCoverLetter(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
 
@@ -205,7 +206,7 @@ async function generateInterviewPrep(index) {
   const { openRouterKey, resumeText, licenseMode, licenseStatus } = await chrome.storage.local.get([
     'openRouterKey', 'resumeText', 'licenseMode', 'licenseStatus'
   ]);
-  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'lifetime');
   if (!canUse) { showInterview(job.title, 'Error: No valid license. Go to Settings.'); return; }
   if (!job.description) { showInterview(job.title, 'Error: No description saved for this job.'); return; }
 
