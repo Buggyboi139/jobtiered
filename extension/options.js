@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
 const STRIPE_SUB_LINK = "https://buy.stripe.com/test_14A5kE3lY0Fe4oy2L493y01";
 const STRIPE_BYOK_LINK = "https://buy.stripe.com/test_14A28scWy2Nm6wGbhA93y00";
-const CANCEL_SUB_LINK = "https://CANCEL_SUBSCRIPTION_LINK_PLACEHOLDER";
+const CANCEL_SUB_LINK = "https://billing.stripe.com/p/login/14A28scWy2Nm6wGbhA93y00";
 
 let currentMode = 'subscription';
 
