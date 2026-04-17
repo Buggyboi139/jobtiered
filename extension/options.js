@@ -39,6 +39,31 @@ document.getElementById('modeSubscription').addEventListener('click', () => {
   chrome.storage.local.set({ licenseMode: 'subscription' });
 });
 
+function toggleToSignup() {
+  document.getElementById('errBanner').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'block';
+  document.getElementById('signupEmail').value = '';
+  document.getElementById('signupPassword').value = '';
+  document.getElementById('signupConfirmPassword').value = '';
+}
+
+function toggleToLogin() {
+  document.getElementById('errBanner').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+}
+
+document.getElementById('showSignupLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  toggleToSignup();
+});
+
+document.getElementById('backToLoginLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  toggleToLogin();
+});
+
 document.getElementById('buySubBtn').addEventListener('click', async () => {
   const { session } = await chrome.storage.local.get('session');
   if (session?.user?.id) {
@@ -61,13 +86,12 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value.trim();
   const btn = document.getElementById('loginBtn');
-  const err = document.getElementById('errBanner');
 
-  err.style.display = 'none';
+  document.getElementById('errBanner').style.display = 'none';
 
   if (!email || !password) { showErr('Enter email and password.'); return; }
 
-  btn.textContent = 'Logging in...';
+  btn.textContent = 'Signing in…';
   btn.disabled = true;
 
   try {
@@ -83,20 +107,91 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.error_description || 'Login failed');
+      throw new Error(data.error_description || 'Login failed. Check your credentials.');
     }
 
     await chrome.storage.local.set({ session: data });
-    
+    document.getElementById('onboardingBanner').style.display = 'none';
+
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-    
+
     renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
-    showSaveBanner('Logged in successfully!');
+    showSaveBanner('Signed in successfully!');
 
   } catch (error) {
     showErr(error.message);
   } finally {
-    btn.textContent = 'Login';
+    btn.textContent = 'Sign In';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('signupBtn').addEventListener('click', async () => {
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirm = document.getElementById('signupConfirmPassword').value;
+  const btn = document.getElementById('signupBtn');
+
+  document.getElementById('errBanner').style.display = 'none';
+
+  if (!email || !password || !confirm) {
+    showErr('Please fill in all fields.');
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showErr('Please enter a valid email address.');
+    return;
+  }
+
+  if (password.length < 8) {
+    showErr('Password must be at least 8 characters.');
+    return;
+  }
+
+  if (password !== confirm) {
+    showErr('Passwords do not match.');
+    return;
+  }
+
+  btn.textContent = 'Creating account…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error_description || data.msg || 'Registration failed. Please try again.');
+    }
+
+    if (data.access_token) {
+      await chrome.storage.local.set({ session: data });
+      toggleToLogin();
+
+      const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
+      renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
+
+      document.getElementById('onboardingBanner').style.display = 'block';
+      showSaveBanner('Account created! Choose a plan to get started.');
+    } else {
+      toggleToLogin();
+      document.getElementById('loginEmail').value = email;
+      showErr('Account created! Check your email to confirm your address, then sign in here.');
+    }
+
+  } catch (error) {
+    showErr(error.message);
+  } finally {
+    btn.textContent = '🚀 Create Account';
     btn.disabled = false;
   }
 });
@@ -106,6 +201,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
   document.getElementById('errBanner').style.display = 'none';
+  document.getElementById('onboardingBanner').style.display = 'none';
   renderLicenseStatus('none', null, currentMode, null);
 });
 
@@ -142,6 +238,7 @@ function renderLicenseStatus(status, plan, mode, session) {
   const text = document.getElementById('licenseStatusText');
   const sub  = document.getElementById('licenseStatusSub');
   const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
   const loggedInView = document.getElementById('loggedInView');
   const userEmail = document.getElementById('userEmail');
   const purchaseOptions = document.getElementById('purchaseOptions');
@@ -149,14 +246,16 @@ function renderLicenseStatus(status, plan, mode, session) {
   if (!session?.access_token) {
     box.className = 'status-box none';
     text.textContent = 'Not logged in';
-    sub.textContent  = 'Please log in to manage your account';
+    sub.textContent  = 'Sign in or create a free account to get started';
     loginForm.style.display = 'block';
+    signupForm.style.display = 'none';
     loggedInView.style.display = 'none';
     purchaseOptions.style.display = 'none';
     return;
   }
 
   loginForm.style.display = 'none';
+  signupForm.style.display = 'none';
   loggedInView.style.display = 'block';
   userEmail.textContent = session.user.email;
 
@@ -165,6 +264,7 @@ function renderLicenseStatus(status, plan, mode, session) {
     text.textContent = 'Active Subscription';
     sub.textContent  = 'Your Pro account is in good standing';
     purchaseOptions.style.display = 'none';
+    document.getElementById('onboardingBanner').style.display = 'none';
     return;
   }
 
@@ -173,13 +273,15 @@ function renderLicenseStatus(status, plan, mode, session) {
     text.textContent = 'Lifetime BYOK License';
     sub.textContent  = 'Ensure your OpenRouter key is set in BYOK Mode';
     purchaseOptions.style.display = 'none';
+    document.getElementById('onboardingBanner').style.display = 'none';
     return;
   }
 
   box.className = 'status-box invalid';
   text.textContent = 'No Active License';
-  sub.textContent  = 'Please purchase a plan to continue';
+  sub.textContent  = 'Choose a plan below to unlock all features';
   purchaseOptions.style.display = 'flex';
+  purchaseOptions.style.flexDirection = 'column';
 }
 
 function showErr(msg) {

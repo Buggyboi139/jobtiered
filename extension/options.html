@@ -28,6 +28,19 @@
   .status-sub { font-size: 13px; color: rgba(255,255,255,0.7); }
   #errBanner { background: #7f1d1d; color: #fca5a5; padding: 12px; border-radius: 6px; margin-bottom: 16px; display: none; font-size: 14px; border: 1px solid #b91c1c; }
   #saveBanner { position: fixed; bottom: 20px; right: 20px; background: #064e3b; color: #a7f3d0; padding: 12px 20px; border-radius: 6px; border: 1px solid #047857; display: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .auth-switch-link { text-align: center; margin-top: 14px; font-size: 13px; color: #a1a1aa; }
+  .auth-switch-link a { color: #6366f1; font-weight: 700; text-decoration: none; transition: color 0.2s; }
+  .auth-switch-link a:hover { color: #818cf8; text-decoration: underline; }
+  .signup-header { text-align: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #27272a; }
+  .signup-header span { font-size: 20px; font-weight: 800; color: #fff; display: block; margin-bottom: 4px; }
+  .signup-header small { font-size: 13px; color: #a1a1aa; }
+  #onboardingBanner { display: none; background: linear-gradient(135deg, #1e3a5f 0%, #1e1b4b 100%); border: 1px solid #3b82f6; border-radius: 8px; padding: 18px 16px; margin-bottom: 16px; text-align: center; }
+  #onboardingBanner .ob-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+  #onboardingBanner .ob-title { font-size: 16px; font-weight: 800; color: #fff; display: block; margin-bottom: 4px; }
+  #onboardingBanner .ob-sub { font-size: 13px; color: rgba(255,255,255,0.75); }
+  #purchaseOptions button { margin-bottom: 8px; }
+  #purchaseOptions { gap: 0; }
+  .plan-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #a1a1aa; margin-bottom: 8px; display: block; }
 </style>
 </head>
 <body>
@@ -48,12 +61,34 @@
     </div>
 
     <div id="subscriptionSection">
+      <div id="onboardingBanner">
+        <span class="ob-icon">🎉</span>
+        <span class="ob-title">Welcome to JobTiered!</span>
+        <span class="ob-sub">Your account is ready. Pick a plan below to unlock all AI-powered features.</span>
+      </div>
+
       <div id="loginForm">
         <label for="loginEmail">Email Address</label>
         <input type="email" id="loginEmail" placeholder="you@example.com">
         <label for="loginPassword">Password</label>
         <input type="password" id="loginPassword" placeholder="••••••••">
-        <button id="loginBtn">Login</button>
+        <button id="loginBtn">Sign In</button>
+        <p class="auth-switch-link">New to JobTiered? <a id="showSignupLink" href="#">Create Account →</a></p>
+      </div>
+
+      <div id="signupForm" style="display: none;">
+        <div class="signup-header">
+          <span>Create Your Account</span>
+          <small>Join JobTiered and start evaluating jobs smarter.</small>
+        </div>
+        <label for="signupEmail">Email Address</label>
+        <input type="email" id="signupEmail" placeholder="you@example.com">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" placeholder="At least 8 characters">
+        <label for="signupConfirmPassword">Confirm Password</label>
+        <input type="password" id="signupConfirmPassword" placeholder="Repeat your password">
+        <button id="signupBtn">🚀 Create Account</button>
+        <p class="auth-switch-link">Already have an account? <a id="backToLoginLink" href="#">Sign In</a></p>
       </div>
       
       <div id="loggedInView" style="display: none;">
@@ -62,9 +97,10 @@
         <button id="refreshStatusBtn" class="btn-secondary" style="margin-top: 8px;">↻ Refresh License Status</button>
       </div>
 
-      <div id="purchaseOptions" style="display: none; flex-direction: column; gap: 8px; margin-top: 12px;">
-        <button id="buySubBtn">🚀 Get Pro Subscription</button>
-        <button id="buyByokBtn" class="btn-secondary">🔑 Get BYOK License</button>
+      <div id="purchaseOptions" style="display: none; flex-direction: column; margin-top: 12px;">
+        <span class="plan-label">Choose a Plan to Get Started</span>
+        <button id="buySubBtn">🚀 Get Pro Subscription — $9.99/mo</button>
+        <button id="buyByokBtn" class="btn-secondary" style="margin-top:8px;">🔑 BYOK License — One-time $19</button>
       </div>
     </div>
 
