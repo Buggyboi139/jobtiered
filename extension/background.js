@@ -1,5 +1,5 @@
-const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co/functions/v1/validate-license";
-const OWNER_API_KEY = "sk-or-v1-YOUR_OWNER_KEY_HERE";
+const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
 const LICENSE_CHECK_ALARM = "licenseCheck";
 const LICENSE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -24,9 +24,7 @@ async function checkLicenseCacheAge() {
 }
 
 async function validateAndCacheLicense() {
-  const { licenseKey, licenseEmail, licenseMode } = await chrome.storage.local.get([
-    "licenseKey", "licenseEmail", "licenseMode"
-  ]);
+  const { licenseMode, session } = await chrome.storage.local.get(["licenseMode", "session"]);
 
   if (licenseMode === "byok") {
     await chrome.storage.local.set({
@@ -36,7 +34,7 @@ async function validateAndCacheLicense() {
     return;
   }
 
-  if (!licenseKey) {
+  if (!session?.access_token) {
     await chrome.storage.local.set({
       licenseStatus: "none",
       licenseCheckedAt: Date.now()
@@ -45,10 +43,11 @@ async function validateAndCacheLicense() {
   }
 
   try {
-    const resp = await fetch(SUPABASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ license_key: licenseKey, email: licenseEmail || "" })
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${session.user.id}&select=status,price_id`, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${session.access_token}`
+      }
     });
 
     if (!resp.ok) {
@@ -60,12 +59,23 @@ async function validateAndCacheLicense() {
     }
 
     const data = await resp.json();
-    await chrome.storage.local.set({
-      licenseStatus: data.valid ? "valid" : "invalid",
-      licensePlan: data.plan || "unknown",
-      licenseExpiry: data.expires_at || null,
-      licenseCheckedAt: Date.now()
-    });
+    const sub = data[0];
+
+    if (sub && sub.status === "active") {
+      await chrome.storage.local.set({
+        licenseStatus: "valid",
+        licensePlan: sub.price_id || "unknown",
+        licenseExpiry: null,
+        licenseCheckedAt: Date.now()
+      });
+    } else {
+      await chrome.storage.local.set({
+        licenseStatus: "invalid",
+        licensePlan: "unknown",
+        licenseExpiry: null,
+        licenseCheckedAt: Date.now()
+      });
+    }
   } catch (_) {
     const { licenseCheckedAt } = await chrome.storage.local.get("licenseCheckedAt");
     if (licenseCheckedAt && Date.now() - licenseCheckedAt < LICENSE_CACHE_TTL_MS * 3) return;
@@ -93,36 +103,61 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleOpenRouterFetch(request) {
-  const { licenseMode, licenseStatus, openRouterKey } = await chrome.storage.local.get([
-    "licenseMode", "licenseStatus", "openRouterKey"
+  const { licenseMode, licenseStatus, openRouterKey, session } = await chrome.storage.local.get([
+    "licenseMode", "licenseStatus", "openRouterKey", "session"
   ]);
 
-  let apiKey;
-
   if (licenseMode === "byok") {
-    if (!openRouterKey) return { error: "No API key configured. Add your OpenRouter key in Settings." };
-    apiKey = openRouterKey;
-  } else {
-    const isValid = licenseStatus === "valid" || licenseStatus === "offline";
-    if (!isValid) return { error: "Invalid or expired license. Update in Settings." };
-    apiKey = OWNER_API_KEY;
+    if (!openRouterKey) return { error: "No API key configured." };
+    
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openRouterKey}`,
+        "HTTP-Referer": "https://jobtiered.com",
+        "X-Title": "JobTiered",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: request.model || "google/gemini-2.5-flash-lite",
+        messages: request.messages,
+        temperature: request.temperature ?? 0.1
+      })
+    });
+
+    const data = await resp.json();
+    return { status: resp.status, ok: resp.ok, data };
   }
 
-  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const isValid = licenseStatus === "valid" || licenseStatus === "offline";
+  if (!isValid || !session?.access_token) return { error: "Invalid license or not logged in." };
+
+  const userContentObj = request.messages.find(m => m.role === "user")?.content || "";
+
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://jobtierpro.app",
-      "X-Title": "Job Tier Rater Pro",
-      "Content-Type": "application/json"
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY
     },
     body: JSON.stringify({
-      model: request.model || "google/gemini-2.5-flash-lite",
+      jobDescription: userContentObj,
+      resumeText: "",
       messages: request.messages,
-      temperature: request.temperature ?? 0.1
+      model: request.model,
+      temperature: request.temperature
     })
   });
 
   const data = await resp.json();
-  return { status: resp.status, ok: resp.ok, data };
+  if (!resp.ok) return { error: data.error || "API error" };
+
+  return { 
+    status: resp.status,
+    ok: true, 
+    data: { 
+      choices: [{ message: { content: data.result } }]
+    } 
+  };
 }
