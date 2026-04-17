@@ -1,22 +1,22 @@
+const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
+
 let currentMode = 'byok';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'openRouterKey', 'currentSalary', 'minSalary', 'resumeText',
-    'licenseMode', 'licenseKey', 'licenseEmail',
-    'licenseStatus', 'licensePlan', 'licenseExpiry'
+    'licenseMode', 'session', 'licenseStatus', 'licensePlan'
   ]);
 
   if (data.openRouterKey) document.getElementById('apiKey').value = data.openRouterKey;
   if (data.currentSalary) document.getElementById('currentSalary').value = data.currentSalary;
   if (data.minSalary)     document.getElementById('minSalary').value = data.minSalary;
   if (data.resumeText)    document.getElementById('resumeText').value = data.resumeText;
-  if (data.licenseEmail)  document.getElementById('licenseEmail').value = data.licenseEmail;
-  if (data.licenseKey)    document.getElementById('licenseKey').value = data.licenseKey;
 
   const mode = data.licenseMode || 'byok';
   setAccessMode(mode, false);
-  renderLicenseStatus(data.licenseStatus, data.licensePlan, data.licenseExpiry, mode);
+  renderLicenseStatus(data.licenseStatus, data.licensePlan, mode, data.session);
 });
 
 function setAccessMode(mode, animate = true) {
@@ -31,52 +31,67 @@ function setAccessMode(mode, animate = true) {
 document.getElementById('modeByok').addEventListener('click', () => {
   setAccessMode('byok');
   chrome.storage.local.set({ licenseMode: 'byok' });
-  renderLicenseStatus('byok', null, null, 'byok');
+  renderLicenseStatus('byok', null, 'byok', null);
 });
 
 document.getElementById('modeSubscription').addEventListener('click', () => {
   setAccessMode('subscription');
   chrome.storage.local.set({ licenseMode: 'subscription' });
-  chrome.storage.local.get(['licenseStatus', 'licensePlan', 'licenseExpiry']).then(({ licenseStatus, licensePlan, licenseExpiry }) => {
-    renderLicenseStatus(licenseStatus, licensePlan, licenseExpiry, 'subscription');
+  chrome.storage.local.get(['licenseStatus', 'licensePlan', 'session']).then(({ licenseStatus, licensePlan, session }) => {
+    renderLicenseStatus(licenseStatus, licensePlan, 'subscription', session);
   });
 });
 
-document.getElementById('validateLicenseBtn').addEventListener('click', async () => {
-  const key   = document.getElementById('licenseKey').value.trim();
-  const email = document.getElementById('licenseEmail').value.trim();
-  const btn   = document.getElementById('validateLicenseBtn');
-  const err   = document.getElementById('errBanner');
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('errBanner');
 
   err.style.display = 'none';
 
-  if (!key) { showErr('Enter a license key.'); return; }
+  if (!email || !password) { showErr('Enter email and password.'); return; }
 
-  btn.innerHTML = '<span class="spinner"></span> Validating…';
+  btn.textContent = 'Logging in...';
   btn.disabled = true;
 
-  await chrome.storage.local.set({ licenseKey: key, licenseEmail: email, licenseMode: 'subscription' });
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
 
-  const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-  btn.innerHTML = '✓ Validate License';
-  btn.disabled = false;
+    const data = await res.json();
 
-  const status = response?.licenseStatus || 'invalid';
-  renderLicenseStatus(status, response?.licensePlan, response?.licenseExpiry, 'subscription');
+    if (!res.ok) {
+      throw new Error(data.error_description || 'Login failed');
+    }
 
-  if (status === 'valid' || status === 'offline') {
-    showSaveBanner('✓ License validated!');
-  } else {
-    showErr('License is invalid or expired. Check your key and try again.');
+    await chrome.storage.local.set({ session: data, licenseMode: 'subscription' });
+    
+    const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
+    
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, 'subscription', data);
+    showSaveBanner('Logged in successfully!');
+
+  } catch (error) {
+    showErr(error.message);
+  } finally {
+    btn.textContent = 'Login';
+    btn.disabled = false;
   }
 });
 
-document.getElementById('clearLicenseBtn').addEventListener('click', async () => {
-  await chrome.storage.local.remove(['licenseKey', 'licenseEmail', 'licenseStatus', 'licensePlan', 'licenseExpiry']);
-  document.getElementById('licenseKey').value = '';
-  document.getElementById('licenseEmail').value = '';
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await chrome.storage.local.remove(['session', 'licenseStatus', 'licensePlan']);
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
   document.getElementById('errBanner').style.display = 'none';
-  renderLicenseStatus('none', null, null, 'subscription');
+  renderLicenseStatus('none', null, 'subscription', null);
 });
 
 document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -95,54 +110,52 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   if (currentMode === 'byok') {
     payload.openRouterKey = apiKey;
   }
-  if (currentMode === 'subscription') {
-    payload.licenseKey   = document.getElementById('licenseKey').value.trim();
-    payload.licenseEmail = document.getElementById('licenseEmail').value.trim();
-  }
 
   await chrome.storage.local.set(payload);
   await chrome.storage.local.remove(['gradeHistory', 'apiTokens']);
-  showSaveBanner('✓ Settings saved! Cache cleared.');
+  showSaveBanner('Settings saved! Cache cleared.');
 });
 
-function renderLicenseStatus(status, plan, expiry, mode) {
+function renderLicenseStatus(status, plan, mode, session) {
   const box  = document.getElementById('licenseStatusBox');
   const text = document.getElementById('licenseStatusText');
   const sub  = document.getElementById('licenseStatusSub');
+  const loginForm = document.getElementById('loginForm');
+  const loggedInView = document.getElementById('loggedInView');
+  const userEmail = document.getElementById('userEmail');
 
   if (mode === 'byok') {
     box.className = 'status-box byok';
-    text.textContent = 'BYOK Mode — Using your own API key';
-    sub.textContent  = 'Costs billed directly to your OpenRouter account';
+    text.textContent = 'BYOK Mode';
+    sub.textContent  = 'Costs billed directly to your API key';
+    loginForm.style.display = 'none';
+    loggedInView.style.display = 'none';
     return;
   }
 
-  if (!status || status === 'none') {
+  if (!session?.access_token) {
     box.className = 'status-box none';
-    text.textContent = 'No license configured';
-    sub.textContent  = 'Enter a license key and click Validate';
+    text.textContent = 'Not logged in';
+    sub.textContent  = 'Please login to access your subscription';
+    loginForm.style.display = 'block';
+    loggedInView.style.display = 'none';
     return;
   }
+
+  loginForm.style.display = 'none';
+  loggedInView.style.display = 'block';
+  userEmail.textContent = session.user.email;
 
   if (status === 'valid' || status === 'offline') {
     box.className = 'status-box valid';
-    text.textContent = `Active${plan ? ` — ${plan}` : ''}`;
-    sub.textContent  = expiry
-      ? `Expires ${new Date(expiry).toLocaleDateString()}`
-      : (status === 'offline' ? 'Validated offline (cached)' : 'Lifetime / no expiry');
+    text.textContent = 'Active Subscription';
+    sub.textContent  = 'Your account is in good standing';
     return;
   }
 
-  if (status === 'invalid' || status === 'expired') {
-    box.className = 'status-box invalid';
-    text.textContent = status === 'expired' ? 'License expired' : 'License invalid';
-    sub.textContent  = 'Please update your license key or renew at jobtierpro.app';
-    return;
-  }
-
-  box.className = 'status-box none';
-  text.textContent = 'Status unknown';
-  sub.textContent  = 'Click Validate to recheck';
+  box.className = 'status-box invalid';
+  text.textContent = 'No Active Subscription';
+  sub.textContent  = 'Please subscribe to use JobTiered';
 }
 
 function showErr(msg) {
