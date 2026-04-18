@@ -13,6 +13,8 @@ const SAVED_DESC_LIMIT = 2000;
 let globalTooltip = null;
 let keywordHighlightActive = false;
 let resumeKeywords = [];
+let lastDetailHash = '';
+let lastUrl = window.location.href;
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -127,6 +129,59 @@ function getJsonLdDescription() {
     } catch (_) {}
   }
   return ext.trim();
+}
+
+function extractGlassdoorPay() {
+  const paySelectors = [
+    '[data-test="detailSalary"]',
+    '[data-test="salaryEstimate"]',
+    '[class*="SalaryEstimate"]',
+    '[class*="salary-estimate"]',
+    '[class*="SalaryRange"]',
+    '[class*="CompensationModule"]',
+    '[class*="EmpBasicInfo"] [class*="salary"]',
+    '[class*="salaryTab"]',
+    '[class*="SalaryModule"]',
+    '[class*="payRange"]',
+    '[class*="PayRange"]',
+  ];
+
+  for (const sel of paySelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el) {
+        const text = el.innerText?.trim();
+        if (text && /\$[\d,]/.test(text)) return text;
+      }
+    } catch (_) {}
+  }
+
+  const detailBody = qFirst(document, [
+    '[data-test="job-detail-body"]',
+    '.JobDetails',
+    '[class*="JobDetail"]',
+    '#JobDescriptionContainer',
+    '[class*="jobDetail"]',
+  ]);
+
+  if (detailBody) {
+    const bodyText = detailBody.innerText || '';
+    const payPatterns = [
+      /(?:Employer (?:Provided|Est\.) (?:Pay|Salary)|Estimated Total Pay|Base Pay Range|Salary Range|Pay Range|Compensation)[:\s]*\$[\d,]+(?:\.\d+)?(?:\s*[-–—to]+\s*\$[\d,]+(?:\.\d+)?)?(?:\s*(?:\/\s*(?:yr|year|hr|hour|mo|month)|per\s+(?:year|hour|month)|[kK](?:\s|$)|a\s+year))?/i,
+      /\$[\d,]+(?:\.\d+)?(?:[kK])?\s*[-–—to]+\s*\$[\d,]+(?:\.\d+)?(?:[kK])?\s*(?:\/\s*(?:yr|year|hr|hour|mo)|per\s+(?:year|hour|month)|a\s+year)?/i,
+      /(?:salary|pay|compensation|base pay)[:\s]*\$[\d,]+(?:\.\d+)?(?:\s*[-–—to]+\s*\$[\d,]+(?:\.\d+)?)?/i,
+    ];
+    for (const pat of payPatterns) {
+      const m = bodyText.match(pat);
+      if (m) return m[0].trim();
+    }
+  }
+
+  const allText = document.body.innerText || '';
+  const globalMatch = allText.match(/(?:Employer (?:Provided|Est\.) (?:Pay|Salary)|Estimated Total Pay|Base Pay Range)[:\s]*\$[\d,]+(?:\.\d+)?(?:\s*[-–—to]+\s*\$[\d,]+(?:\.\d+)?)?(?:\s*(?:\/\s*(?:yr|year|hr|hour)|per\s+(?:year|hour)|[kK](?:\s|$)|a\s+year))?/i);
+  if (globalMatch) return globalMatch[0].trim();
+
+  return '';
 }
 
 const BADGE_STYLES = `
@@ -386,6 +441,14 @@ function getDetailJob() {
       if (pane) description = pane.innerText?.trim() || '';
     }
 
+    const gdPay = extractGlassdoorPay();
+    if (gdPay) {
+      const payNormalized = gdPay.replace(/\s+/g, ' ');
+      if (!description.includes(payNormalized)) {
+        description = `Salary/Pay Information: ${payNormalized}\n\n${description}`;
+      }
+    }
+
   } else if (host.includes('ziprecruiter.com')) {
     const rightPane = qFirst(document, [
       '[data-testid="right-pane"]', '.job_details_container',
@@ -626,11 +689,11 @@ Grade pay harshly if the estimated pay is below the minimum desired salary.`;
 }
 
 async function checkLicense() {
-  const { licenseStatus, licenseMode, openRouterKey } = await chrome.storage.local.get([
-    'licenseStatus', 'licenseMode', 'openRouterKey'
+  const { licenseStatus, openRouterKey } = await chrome.storage.local.get([
+    'licenseStatus', 'openRouterKey'
   ]);
-  if (licenseMode === 'byok' && openRouterKey) return true;
-  if (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'byok') return true;
+  if (licenseStatus === 'byok' && openRouterKey) return true;
+  if (licenseStatus === 'valid' || licenseStatus === 'offline') return true;
   return false;
 }
 
@@ -838,14 +901,264 @@ async function flushQueue() {
   }
 }
 
+function createTweakPanel() {
+  if (document.getElementById('jtr-tweak-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'jtr-tweak-panel';
+  panel.style.cssText = `
+    display:none; position:fixed; top:0; right:0; width:480px; height:100vh;
+    background:rgba(15,15,20,0.98); backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-left:1px solid rgba(255,255,255,0.1); z-index:2147483646;
+    font-family:system-ui,-apple-system,sans-serif; color:#e8e8f0;
+    overflow-y:auto; box-shadow:-8px 0 40px rgba(0,0,0,0.6);
+  `;
+
+  panel.innerHTML = `
+    <div style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 id="jtr-tweak-title" style="font-size:16px;font-weight:700;color:#e8e8f0;margin:0;">Tweak Resume</h3>
+        <button id="jtr-tweak-close" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#e8e8f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;">Close</button>
+      </div>
+      <div id="jtr-tweak-status" style="color:#7070a0;font-size:13px;margin-bottom:12px;line-height:1.5;"></div>
+      <textarea id="jtr-tweak-output" readonly style="width:100%;height:calc(100vh - 180px);background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e8e8f0;font-size:13px;font-family:system-ui,sans-serif;padding:14px;resize:none;line-height:1.6;box-sizing:border-box;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button id="jtr-tweak-copy" style="flex:1;padding:10px;background:rgba(74,158,255,0.2);border:1px solid rgba(74,158,255,0.35);color:#4a9eff;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;font-family:system-ui,sans-serif;transition:all 0.15s;">Copy to Clipboard</button>
+        <button id="jtr-tweak-close2" style="flex:1;padding:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#9090a0;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;font-family:system-ui,sans-serif;transition:all 0.15s;">Close</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  document.getElementById('jtr-tweak-close').addEventListener('click', () => { panel.style.display = 'none'; });
+  document.getElementById('jtr-tweak-close2').addEventListener('click', () => { panel.style.display = 'none'; });
+  document.getElementById('jtr-tweak-copy').addEventListener('click', () => {
+    const ta = document.getElementById('jtr-tweak-output');
+    navigator.clipboard.writeText(ta.value).then(() => {
+      const btn = document.getElementById('jtr-tweak-copy');
+      const prev = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+  });
+}
+
+async function handleTweakResume() {
+  createTweakPanel();
+  const panel = document.getElementById('jtr-tweak-panel');
+  if (!panel) return;
+
+  const detailJobs = getDetailJob();
+  if (!detailJobs || !detailJobs[0]) {
+    panel.style.display = 'block';
+    document.getElementById('jtr-tweak-status').textContent = 'No job description found on this page. Navigate to a job detail view first.';
+    document.getElementById('jtr-tweak-output').value = '';
+    return;
+  }
+
+  const job = detailJobs[0];
+  const { resumeText, licenseStatus, openRouterKey } = await chrome.storage.local.get([
+    'resumeText', 'licenseStatus', 'openRouterKey'
+  ]);
+
+  const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  if (!canUse) {
+    panel.style.display = 'block';
+    document.getElementById('jtr-tweak-status').textContent = 'Error: No valid license or API key. Configure one in Settings.';
+    document.getElementById('jtr-tweak-output').value = '';
+    return;
+  }
+
+  if (!resumeText) {
+    panel.style.display = 'block';
+    document.getElementById('jtr-tweak-status').textContent = 'Error: No resume found. Paste your resume text in the extension Settings first.';
+    document.getElementById('jtr-tweak-output').value = '';
+    return;
+  }
+
+  panel.style.display = 'block';
+  document.getElementById('jtr-tweak-title').textContent = `Tweak Resume \u2014 ${job.title}`;
+  document.getElementById('jtr-tweak-status').textContent = 'Generating tailored resume\u2026';
+  document.getElementById('jtr-tweak-status').style.color = '#7070a0';
+  document.getElementById('jtr-tweak-output').value = '';
+
+  const systemPrompt = `You are an expert resume writer and career coach. You will receive a user's original resume and a job description. Your task is to rewrite the resume so it is better tailored to the specific job.
+
+Guidelines:
+- Keep the same overall structure, sections, and formatting as the original resume.
+- Do NOT fabricate experience, skills, or qualifications the candidate does not have.
+- Adjust language, phrasing, and emphasis to mirror keywords and requirements from the job description.
+- Reorder bullet points to lead with the most relevant experience for this role.
+- Incorporate relevant keywords from the job posting naturally into the resume text.
+- Quantify achievements where possible based on existing information.
+- Keep it concise and professional.
+- This should be a reasonable tailoring, not a complete rewrite. The original voice and content should be preserved.
+- Output ONLY the rewritten resume text, no commentary or explanation.`;
+
+  const userPrompt = `Job Title: ${job.title}
+Company: ${job.company || 'Unknown'}
+Location: ${job.location || 'Not listed'}
+
+Job Description:
+${job.description}
+
+---
+
+Original Resume:
+${resumeText}`;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'fetchOpenRouter',
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.4
+    });
+
+    if (response.error || !response.ok) {
+      const msg = response.data?.error?.message || response.error || 'API Error';
+      document.getElementById('jtr-tweak-status').textContent = `Error: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`;
+      document.getElementById('jtr-tweak-status').style.color = '#f87171';
+      return;
+    }
+
+    if (!response.data?.choices?.[0]) {
+      document.getElementById('jtr-tweak-status').textContent = 'Error: Invalid API response structure.';
+      document.getElementById('jtr-tweak-status').style.color = '#f87171';
+      return;
+    }
+
+    const usage = response.data.usage;
+    if (usage) {
+      const { apiTokens } = await chrome.storage.local.get('apiTokens');
+      chrome.storage.local.set({ apiTokens: (apiTokens || 0) + (usage.total_tokens || 0) });
+    }
+
+    const text = response.data.choices[0].message.content.trim();
+    document.getElementById('jtr-tweak-status').textContent = 'Resume tailored successfully. Review and copy below.';
+    document.getElementById('jtr-tweak-status').style.color = '#4ade80';
+    document.getElementById('jtr-tweak-output').value = text;
+  } catch (err) {
+    document.getElementById('jtr-tweak-status').textContent = `Error: ${err.message}`;
+    document.getElementById('jtr-tweak-status').style.color = '#f87171';
+  }
+}
+
+function injectTweakButton(container) {
+  if (!container) return;
+  if (container.querySelector('#jtr-tweak-resume-btn')) return;
+  const oldBtn = document.getElementById('jtr-tweak-resume-btn');
+  if (oldBtn) oldBtn.remove();
+
+  const btn = document.createElement('span');
+  btn.id = 'jtr-tweak-resume-btn';
+  btn.textContent = 'Tweak Resume';
+  btn.style.cssText = `
+    display:inline-flex; align-items:center; gap:4px; padding:4px 11px;
+    font-family:system-ui,sans-serif; font-weight:600; border-radius:6px;
+    background:rgba(99,102,241,0.2); color:#a5b4fc; cursor:pointer;
+    font-size:12px; border:1px solid rgba(99,102,241,0.35);
+    margin-left:8px; vertical-align:middle; transition:all 0.15s;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    position:relative; z-index:9999; pointer-events:all !important;
+    line-height:1.3; white-space:nowrap;
+  `;
+  btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(99,102,241,0.35)'; btn.style.transform = 'translateY(-1px)'; });
+  btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(99,102,241,0.2)'; btn.style.transform = 'none'; });
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    handleTweakResume();
+  }, true);
+
+  container.prepend(btn);
+}
+
 function scan() {
   chrome.storage.local.get('evalMode').then(({ evalMode }) => {
     const mode = evalMode || 'personal';
     const listingJobs = getListingJobs();
     if (listingJobs?.length > 0) enqueueJobs(listingJobs, 'list', mode);
     const detailJobs = getDetailJob();
-    if (detailJobs) enqueueJobs(detailJobs, 'detail', mode);
+    if (detailJobs) {
+      const newHash = hashJob(detailJobs[0].title, detailJobs[0].company);
+      if (newHash !== lastDetailHash) {
+        lastDetailHash = newHash;
+        const descEl = getDescriptionBody();
+        if (descEl) descEl.removeAttribute('data-jtr-highlighted');
+      }
+      enqueueJobs(detailJobs, 'detail', mode);
+      injectTweakButton(detailJobs[0].container);
+    }
   });
+}
+
+function glassdoorJobChanged() {
+  lastDetailHash = '';
+  const oldBadges = document.querySelectorAll('span[data-jtr-id$="-detail"]');
+  oldBadges.forEach(b => b.remove());
+  const oldTweakBtn = document.getElementById('jtr-tweak-resume-btn');
+  if (oldTweakBtn) oldTweakBtn.remove();
+  setTimeout(scan, 600);
+  setTimeout(scan, 1500);
+  setTimeout(scan, 3000);
+}
+
+function initGlassdoorWatchers() {
+  setInterval(() => {
+    const currentUrl = window.location.href;
+    if (currentUrl !== lastUrl) {
+      lastUrl = currentUrl;
+      glassdoorJobChanged();
+    }
+  }, 500);
+
+  document.addEventListener('click', (e) => {
+    const jobCard = e.target.closest(
+      '[data-test="jobListing"], li[class*="JobsList"], [class*="JobCard"], ' +
+      'a[href*="/job-listing/"], a[href*="/partner/jobListing"], a[data-test="job-link"], ' +
+      '[id^="job-listing-"], [class*="jobCard"]'
+    );
+    if (jobCard) {
+      setTimeout(() => {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+          lastUrl = currentUrl;
+        }
+        glassdoorJobChanged();
+      }, 300);
+    }
+  }, true);
+
+  const detailPane = qFirst(document, [
+    '[data-test="job-detail-body"]',
+    '.JobDetails',
+    '[class*="JobDetail"]',
+    '#JobDescriptionContainer',
+    '[class*="jobDetail"]',
+  ]);
+  if (detailPane) {
+    const detailObserver = new MutationObserver(() => {
+      if (detailObserver._t) clearTimeout(detailObserver._t);
+      detailObserver._t = setTimeout(() => {
+        const detailJobs = getDetailJob();
+        if (detailJobs) {
+          const newHash = hashJob(detailJobs[0].title, detailJobs[0].company);
+          if (newHash !== lastDetailHash) {
+            glassdoorJobChanged();
+          }
+        }
+      }, 500);
+    });
+    detailObserver.observe(detailPane, { childList: true, subtree: true, characterData: true });
+  }
 }
 
 async function init() {
@@ -871,6 +1184,7 @@ async function init() {
   `;
   document.head.appendChild(fixStyle);
 
+  createTweakPanel();
   scan();
 
   const observer = new MutationObserver(() => {
@@ -879,6 +1193,10 @@ async function init() {
   });
   observer.observe(document.body, { childList: true, subtree: true });
   setInterval(scan, POLL_INTERVAL);
+
+  if (window.location.hostname.includes('glassdoor.com')) {
+    initGlassdoorWatchers();
+  }
 }
 
 init();

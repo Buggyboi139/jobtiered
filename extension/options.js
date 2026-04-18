@@ -4,12 +4,10 @@ const STRIPE_SUB_LINK = "https://buy.stripe.com/test_14A5kE3lY0Fe4oy2L493y01";
 const STRIPE_BYOK_LINK = "https://buy.stripe.com/test_14A28scWy2Nm6wGbhA93y00";
 const CANCEL_SUB_LINK = "https://billing.stripe.com/p/login/14A28scWy2Nm6wGbhA93y00";
 
-let currentMode = 'subscription';
-
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'openRouterKey', 'currentSalary', 'minSalary', 'resumeText',
-    'licenseMode', 'session', 'licenseStatus', 'licensePlan'
+    'session', 'licenseStatus', 'licensePlan'
   ]);
 
   if (data.openRouterKey) document.getElementById('apiKey').value = data.openRouterKey;
@@ -17,27 +15,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (data.minSalary)     document.getElementById('minSalary').value = data.minSalary;
   if (data.resumeText)    document.getElementById('resumeText').value = data.resumeText;
 
-  const mode = data.licenseMode || 'subscription';
-  setAccessMode(mode, false);
-  renderLicenseStatus(data.licenseStatus, data.licensePlan, mode, data.session);
-});
+  renderLicenseStatus(data.licenseStatus, data.licensePlan, data.session);
 
-function setAccessMode(mode, animate = true) {
-  currentMode = mode;
-  document.getElementById('modeByok').classList.toggle('active', mode === 'byok');
-  document.getElementById('modeSubscription').classList.toggle('active', mode === 'subscription');
-  document.getElementById('byokSection').style.display = mode === 'byok' ? 'block' : 'none';
-  if (animate) document.getElementById('errBanner').style.display = 'none';
-}
-
-document.getElementById('modeByok').addEventListener('click', () => {
-  setAccessMode('byok');
-  chrome.storage.local.set({ licenseMode: 'byok' });
-});
-
-document.getElementById('modeSubscription').addEventListener('click', () => {
-  setAccessMode('subscription');
-  chrome.storage.local.set({ licenseMode: 'subscription' });
+  if (data.session?.access_token) {
+    const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
+    renderLicenseStatus(response?.licenseStatus || data.licenseStatus, response?.licensePlan, data.session);
+  }
 });
 
 function toggleToSignup() {
@@ -116,7 +99,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
 
-    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data);
     showToast('Signed in successfully.', 'success');
 
   } catch (error) {
@@ -179,7 +162,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
       toggleToLogin();
 
       const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-      renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, data);
+      renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data);
 
       document.getElementById('onboardingBanner').style.display = 'block';
       showToast('Account created. Choose a plan to get started.', 'success');
@@ -203,7 +186,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('loginPassword').value = '';
   document.getElementById('errBanner').style.display = 'none';
   document.getElementById('onboardingBanner').style.display = 'none';
-  renderLicenseStatus('none', null, currentMode, null);
+  renderLicenseStatus('none', null, null);
   showToast('Signed out.', 'success');
 });
 
@@ -217,10 +200,10 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     currentSalary: salary,
     minSalary: minSalary,
     resumeText: resumeText,
-    licenseMode: currentMode
   };
 
-  if (currentMode === 'byok') {
+  const { licenseStatus } = await chrome.storage.local.get('licenseStatus');
+  if (licenseStatus === 'byok') {
     payload.openRouterKey = apiKey;
   }
 
@@ -236,7 +219,7 @@ document.getElementById('refreshStatusBtn').addEventListener('click', async () =
   try {
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
     const { session } = await chrome.storage.local.get('session');
-    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, currentMode, session);
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, session);
     showToast('License status updated.', 'success');
   } finally {
     btn.textContent = 'Refresh License Status';
@@ -268,10 +251,39 @@ document.getElementById('deleteConfirmOverlay').addEventListener('click', (e) =>
 });
 
 async function handleDeleteAccount() {
-  showToast('Account deletion requested. This feature will be connected shortly.', 'error');
+  const btn = document.getElementById('deleteAccountBtn');
+  btn.textContent = 'Deleting\u2026';
+  btn.disabled = true;
+
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'deleteAccount' });
+
+    if (response.error) {
+      showToast(`Delete failed: ${response.error}`, 'error');
+      return;
+    }
+
+    await chrome.storage.local.clear();
+    showToast('Account deleted successfully.', 'success');
+
+    setTimeout(() => {
+      renderLicenseStatus('none', null, null);
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginPassword').value = '';
+      document.getElementById('apiKey').value = '';
+      document.getElementById('currentSalary').value = '';
+      document.getElementById('minSalary').value = '';
+      document.getElementById('resumeText').value = '';
+    }, 500);
+  } catch (err) {
+    showToast(`Delete failed: ${err.message}`, 'error');
+  } finally {
+    btn.textContent = 'Delete Account';
+    btn.disabled = false;
+  }
 }
 
-function renderLicenseStatus(status, plan, mode, session) {
+function renderLicenseStatus(status, plan, session) {
   const box  = document.getElementById('licenseStatusBox');
   const text = document.getElementById('licenseStatusText');
   const sub  = document.getElementById('licenseStatusSub');
@@ -281,6 +293,11 @@ function renderLicenseStatus(status, plan, mode, session) {
   const userEmail = document.getElementById('userEmail');
   const purchaseOptions = document.getElementById('purchaseOptions');
   const dangerZone = document.getElementById('dangerZone');
+  const byokSection = document.getElementById('byokSection');
+  const cancelBtn = document.getElementById('cancelSubBtn');
+
+  byokSection.style.display = 'none';
+  cancelBtn.style.display = 'none';
 
   if (!session?.access_token) {
     box.className = 'status-box none';
@@ -297,41 +314,45 @@ function renderLicenseStatus(status, plan, mode, session) {
   loginForm.style.display = 'none';
   signupForm.style.display = 'none';
   loggedInView.style.display = 'block';
-  userEmail.textContent = session.user.email;
+  userEmail.textContent = session.user?.email || 'Unknown';
   dangerZone.style.display = 'block';
 
   if (status === 'valid' || status === 'offline') {
     box.className = 'status-box valid';
     text.textContent = 'Active Subscription';
-    sub.textContent  = 'Your Pro account is in good standing';
+    sub.textContent  = 'Your Pro account is in good standing. AI grading uses the managed API.';
     purchaseOptions.style.display = 'none';
-    document.getElementById('onboardingBanner').style.display = 'none';
-    return;
-  }
-
-  if (status === 'lifetime') {
-    box.className = 'status-box byok';
-    text.textContent = 'Lifetime BYOK License';
-    sub.textContent  = 'Ensure your OpenRouter key is set in BYOK Mode';
-    purchaseOptions.style.display = 'none';
+    cancelBtn.style.display = 'block';
     document.getElementById('onboardingBanner').style.display = 'none';
     return;
   }
 
   if (status === 'byok') {
     box.className = 'status-box byok';
-    text.textContent = 'BYOK Mode';
-    sub.textContent  = 'Using your own API key \u2014 no subscription required';
+    text.textContent = 'BYOK License';
+    sub.textContent  = 'Provide your own OpenRouter API key below. You do not have access to the managed API.';
     purchaseOptions.style.display = 'none';
+    byokSection.style.display = 'block';
+    document.getElementById('onboardingBanner').style.display = 'none';
+    return;
+  }
+
+  if (status === 'past_due') {
+    box.className = 'status-box past_due';
+    text.textContent = 'Payment Past Due';
+    sub.textContent  = 'Your subscription payment failed. Please update your payment method to restore access.';
+    purchaseOptions.style.display = 'none';
+    cancelBtn.style.display = 'block';
     document.getElementById('onboardingBanner').style.display = 'none';
     return;
   }
 
   box.className = 'status-box invalid';
-  text.textContent = 'No Active License';
+  text.textContent = 'No Active Plan';
   sub.textContent  = 'Choose a plan below to unlock all features';
   purchaseOptions.style.display = 'flex';
   purchaseOptions.style.flexDirection = 'column';
+  cancelBtn.style.display = 'none';
 }
 
 function showErr(msg) {

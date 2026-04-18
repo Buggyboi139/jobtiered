@@ -5,13 +5,13 @@ let allSavedJobs = [];
 const STAGES = ['saved', 'applied', 'offer', 'rejected'];
 
 const LICENSE_LABELS = {
-  valid:    { text: 'Active',    cls: 'valid'   },
-  lifetime: { text: 'Lifetime',  cls: 'valid'   },
-  byok:     { text: 'BYOK',      cls: 'byok'    },
-  offline:  { text: 'Offline',   cls: 'valid'   },
-  invalid:  { text: 'Invalid',   cls: 'invalid' },
-  expired:  { text: 'Expired',   cls: 'invalid' },
-  none:     { text: 'No License', cls: 'none'   }
+  valid:    { text: 'Active',     cls: 'valid'   },
+  byok:     { text: 'BYOK',       cls: 'byok'    },
+  offline:  { text: 'Offline',    cls: 'valid'   },
+  past_due: { text: 'Past Due',   cls: 'invalid' },
+  invalid:  { text: 'No Plan',    cls: 'invalid' },
+  canceled: { text: 'Canceled',   cls: 'invalid' },
+  none:     { text: 'No License', cls: 'none'    }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -30,9 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('savedCount').textContent = allSavedJobs.length;
   renderSavedJobs();
 
-  const { licenseStatus, licenseMode } = await chrome.storage.local.get(['licenseStatus', 'licenseMode']);
-  const effectiveStatus = licenseMode === 'byok' ? 'byok' : (licenseStatus || 'none');
-  updateLicensePill(effectiveStatus);
+  const { licenseStatus } = await chrome.storage.local.get('licenseStatus');
+  updateLicensePill(licenseStatus || 'none');
 });
 
 function fmtNum(n) {
@@ -139,7 +138,7 @@ document.getElementById('copyCoverLetter').addEventListener('click', () => {
   const ta = document.getElementById('coverLetterText');
   navigator.clipboard.writeText(ta.value).then(() => {
     const btn = document.getElementById('copyCoverLetter');
-    const prev = btn.textContent; btn.textContent = '✓ Copied!';
+    const prev = btn.textContent; btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = prev, 1500);
   });
 });
@@ -165,10 +164,10 @@ async function removeJob(index) {
 async function generateCoverLetter(index) {
   const job = allSavedJobs[index];
   if (!job) return;
-  const { openRouterKey, resumeText, licenseMode, licenseStatus } = await chrome.storage.local.get([
-    'openRouterKey', 'resumeText', 'licenseMode', 'licenseStatus'
+  const { openRouterKey, resumeText, licenseStatus } = await chrome.storage.local.get([
+    'openRouterKey', 'resumeText', 'licenseStatus'
   ]);
-  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
   if (!canUse) { showCoverLetter(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
   if (!job.description) { showCoverLetter(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
 
@@ -308,13 +307,13 @@ function renderSavedJobs() {
 
     const coverBtn = document.createElement('button');
     coverBtn.className = 'job-act-btn primary';
-    coverBtn.textContent = '📝 Cover';
+    coverBtn.textContent = 'Cover Letter';
     coverBtn.addEventListener('click', () => generateCoverLetter(realIndex));
     actions.appendChild(coverBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'job-act-btn danger-sm';
-    removeBtn.textContent = '✕';
+    removeBtn.textContent = 'X';
     removeBtn.title = 'Remove this job';
     removeBtn.addEventListener('click', () => removeJob(realIndex));
     actions.appendChild(removeBtn);

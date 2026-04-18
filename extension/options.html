@@ -62,37 +62,6 @@
     display: block;
   }
 
-  .tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 20px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 10px;
-    padding: 4px;
-    border: 1px solid rgba(255,255,255,0.05);
-  }
-  .tab {
-    flex: 1;
-    text-align: center;
-    padding: 9px 12px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 13px;
-    color: #71717a;
-    transition: all 0.25s ease;
-    user-select: none;
-  }
-  .tab:hover { color: #a1a1aa; background: rgba(255,255,255,0.03); }
-  .tab.active {
-    background: rgba(99,102,241,0.15);
-    color: #a5b4fc;
-    border-color: rgba(99,102,241,0.25);
-    box-shadow: 0 0 12px rgba(99,102,241,0.1);
-  }
-
   label {
     display: block;
     font-size: 13px;
@@ -220,6 +189,10 @@
     background: rgba(59,130,246,0.08);
     border-color: rgba(59,130,246,0.2);
   }
+  .status-box.past_due {
+    background: rgba(251,146,60,0.08);
+    border-color: rgba(251,146,60,0.2);
+  }
 
   .status-indicator {
     display: flex;
@@ -237,6 +210,7 @@
   .status-box.invalid .status-dot { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
   .status-box.none .status-dot { background: #52525b; }
   .status-box.byok .status-dot { background: #3b82f6; box-shadow: 0 0 8px rgba(59,130,246,0.5); }
+  .status-box.past_due .status-dot { background: #fb923c; box-shadow: 0 0 8px rgba(251,146,60,0.5); }
 
   .status-title {
     font-weight: 600;
@@ -438,6 +412,21 @@
   }
   .confirm-actions button { flex: 1; }
 
+  .plan-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .plan-badge.sub { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .plan-badge.byok { background: rgba(59,130,246,0.15); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3); }
+  .plan-badge.free { background: rgba(255,255,255,0.06); color: #71717a; border: 1px solid rgba(255,255,255,0.1); }
+
   @keyframes slideIn {
     from { opacity: 0; transform: translateY(-8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -454,11 +443,6 @@
   <div class="page-header">
     <h1>JobTiered Settings</h1>
     <p>Configure your account, license, and evaluation preferences.</p>
-  </div>
-
-  <div class="tabs">
-    <div class="tab" id="modeSubscription">Subscription</div>
-    <div class="tab" id="modeByok">BYOK Mode</div>
   </div>
 
   <div id="errBanner"></div>
@@ -522,6 +506,7 @@
     <div id="byokSection" style="display: none;">
       <label for="apiKey">OpenRouter API Key</label>
       <input type="password" id="apiKey" placeholder="sk-or-v1-..." autocomplete="off">
+      <p style="font-size:12px;color:#71717a;margin-top:-8px;margin-bottom:14px;">Your plan requires your own OpenRouter API key. Get one at <a href="https://openrouter.ai/keys" target="_blank" style="color:#818cf8;">openrouter.ai/keys</a></p>
     </div>
   </div>
 
@@ -555,7 +540,7 @@
 <div class="confirm-overlay" id="deleteConfirmOverlay">
   <div class="confirm-dialog">
     <h3>Delete your account?</h3>
-    <p>This will permanently remove your account, license, and all associated data. This action cannot be reversed.</p>
+    <p>This will permanently remove your account, cancel any active subscription, and delete all associated data. This action cannot be reversed.</p>
     <div class="confirm-actions">
       <button class="btn-secondary" id="deleteConfirmCancel">Go Back</button>
       <button class="btn-danger-solid" id="deleteConfirmProceed">Delete Account</button>

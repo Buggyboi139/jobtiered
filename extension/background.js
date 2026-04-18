@@ -24,7 +24,7 @@ async function checkLicenseCacheAge() {
 }
 
 async function validateAndCacheLicense() {
-  const { licenseMode, session } = await chrome.storage.local.get(["licenseMode", "session"]);
+  const { session } = await chrome.storage.local.get("session");
 
   if (!session?.access_token) {
     await chrome.storage.local.set({
@@ -53,33 +53,37 @@ async function validateAndCacheLicense() {
     const data = await resp.json();
     const sub = data[0];
 
-    if (licenseMode === "byok") {
-      if (sub && (sub.status === "active" || sub.status === "lifetime")) {
-        await chrome.storage.local.set({
-          licenseStatus: "byok",
-          licenseCheckedAt: Date.now()
-        });
-      } else {
-        await chrome.storage.local.set({
-          licenseStatus: "invalid",
-          licenseCheckedAt: Date.now()
-        });
-      }
+    if (!sub) {
+      await chrome.storage.local.set({
+        licenseStatus: "none",
+        licensePlan: "none",
+        licenseCheckedAt: Date.now()
+      });
       return;
     }
 
-    if (sub && (sub.status === "active" || sub.status === "lifetime")) {
+    if (sub.status === 'active') {
       await chrome.storage.local.set({
         licenseStatus: "valid",
         licensePlan: sub.price_id || "unknown",
-        licenseExpiry: null,
+        licenseCheckedAt: Date.now()
+      });
+    } else if (sub.status === 'byok' || sub.status === 'lifetime') {
+      await chrome.storage.local.set({
+        licenseStatus: "byok",
+        licensePlan: sub.price_id || "byok",
+        licenseCheckedAt: Date.now()
+      });
+    } else if (sub.status === 'past_due') {
+      await chrome.storage.local.set({
+        licenseStatus: "past_due",
+        licensePlan: sub.price_id || "unknown",
         licenseCheckedAt: Date.now()
       });
     } else {
       await chrome.storage.local.set({
         licenseStatus: "invalid",
         licensePlan: "unknown",
-        licenseExpiry: null,
         licenseCheckedAt: Date.now()
       });
     }
@@ -98,24 +102,53 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === "validateLicense") {
     validateAndCacheLicense().then(() => {
-      chrome.storage.local.get(["licenseStatus", "licensePlan", "licenseExpiry"]).then(sendResponse);
+      chrome.storage.local.get(["licenseStatus", "licensePlan"]).then(sendResponse);
     });
     return true;
   }
 
   if (request.action === "getLicenseStatus") {
-    chrome.storage.local.get(["licenseStatus", "licensePlan", "licenseExpiry", "licenseMode"]).then(sendResponse);
+    chrome.storage.local.get(["licenseStatus", "licensePlan"]).then(sendResponse);
+    return true;
+  }
+
+  if (request.action === "deleteAccount") {
+    handleDeleteAccount().then(sendResponse).catch(err => sendResponse({ error: err.message }));
     return true;
   }
 });
 
+async function handleDeleteAccount() {
+  const { session } = await chrome.storage.local.get("session");
+  if (!session?.access_token) return { error: "Not logged in." };
+
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ action: 'delete-account' })
+  });
+
+  const text = await resp.text();
+  let data;
+  try { data = JSON.parse(text); } catch { return { error: "Server returned invalid response." }; }
+
+  if (!resp.ok || data.error) return { error: data.error || `Server Error ${resp.status}` };
+
+  await chrome.storage.local.clear();
+  return { success: true };
+}
+
 async function handleOpenRouterFetch(request) {
-  const { licenseMode, licenseStatus, openRouterKey, session } = await chrome.storage.local.get([
-    "licenseMode", "licenseStatus", "openRouterKey", "session"
+  const { licenseStatus, openRouterKey, session } = await chrome.storage.local.get([
+    "licenseStatus", "openRouterKey", "session"
   ]);
 
-  if (licenseMode === "byok") {
-    if (!openRouterKey) return { error: "No API key configured." };
+  if (licenseStatus === "byok") {
+    if (!openRouterKey) return { error: "No API key configured. Add your OpenRouter key in Settings." };
 
     const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",

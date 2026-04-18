@@ -18,20 +18,13 @@ serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
 
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) throw new Error('Unauthorized');
-
-    const { data: subData, error: subError } = await supabaseClient
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', user.id)
-      .single();
-
-    if (subError || (subData?.status !== 'active' && subData?.status !== 'lifetime')) {
-      return new Response(JSON.stringify({ error: 'Active or lifetime subscription required' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
 
     const bodyText = await req.text();
     let requestData;
@@ -39,6 +32,65 @@ serve(async (req) => {
       requestData = JSON.parse(bodyText);
     } catch {
       throw new Error("Invalid JSON in request body");
+    }
+
+    if (requestData.action === 'delete-account') {
+      const { data: subData } = await supabaseClient
+        .from('subscriptions')
+        .select('stripe_customer_id, stripe_subscription_id, status')
+        .eq('user_id', user.id)
+        .single();
+
+      if (subData?.stripe_subscription_id && subData.status === 'active') {
+        try {
+          const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+          if (stripeKey) {
+            const cancelResp = await fetch(`https://api.stripe.com/v1/subscriptions/${subData.stripe_subscription_id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${stripeKey}` },
+            });
+            if (!cancelResp.ok) {
+              console.error(`Stripe cancel failed: ${await cancelResp.text()}`);
+            }
+          }
+        } catch (e) {
+          console.error(`Stripe cancel error: ${e.message}`);
+        }
+      }
+
+      await supabaseAdmin.from('subscriptions').delete().eq('user_id', user.id);
+
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+      if (deleteError) throw new Error(`Account deletion failed: ${deleteError.message}`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (requestData.action === 'get-plan') {
+      const { data: subData, error: subError } = await supabaseClient
+        .from('subscriptions')
+        .select('status, price_id')
+        .eq('user_id', user.id)
+        .single();
+
+      const plan = (!subError && subData) ? subData : { status: 'none', price_id: null };
+      return new Response(JSON.stringify({ plan }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: subData, error: subError } = await supabaseClient
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', user.id)
+      .single();
+
+    if (subError || subData?.status !== 'active') {
+      return new Response(JSON.stringify({ error: 'Active subscription required. BYOK users must use their own API key.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const { messages, model, temperature } = requestData;
