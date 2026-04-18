@@ -22,7 +22,7 @@ function isPaidStatus(status) {
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'apiTokens', 'savedJobs', 'gradeHistory', 'evalMode', 'keywordHighlight',
-    'freemiumRemaining', 'session'
+    'session'
   ]);
 
   if (data.apiTokens) document.getElementById('apiTokens').textContent = fmtNum(data.apiTokens);
@@ -40,7 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const status = licenseStatus || 'none';
   updateLicensePill(status);
   updateCtaButton(status);
-  updateFreemiumDisplay(status, data.freemiumRemaining);
 
   if (data.session?.access_token) {
     fetchSavedJobsFromSupabase();
@@ -102,14 +101,6 @@ chrome.storage.onChanged.addListener((changes) => {
     const status = changes.licenseStatus.newValue || 'none';
     updateLicensePill(status);
     updateCtaButton(status);
-    chrome.storage.local.get('freemiumRemaining').then(({ freemiumRemaining }) => {
-      updateFreemiumDisplay(status, freemiumRemaining);
-    });
-  }
-  if (changes.freemiumRemaining) {
-    chrome.storage.local.get('licenseStatus').then(({ licenseStatus }) => {
-      updateFreemiumDisplay(licenseStatus || 'none', changes.freemiumRemaining.newValue);
-    });
   }
 });
 
@@ -137,28 +128,6 @@ function updateCtaButton(status) {
   } else {
     label.textContent = 'Upgrade Plan';
     sub.textContent = 'Unlock unlimited grading, cover letters, and more';
-  }
-}
-
-function updateFreemiumDisplay(status, remaining) {
-  const card = document.getElementById('freemiumCard');
-  const countEl = document.getElementById('freemiumCount');
-
-  if (isPaidStatus(status)) {
-    card.style.display = 'none';
-    return;
-  }
-
-  const count = remaining ?? 15;
-  card.style.display = '';
-  countEl.textContent = count;
-
-  if (count <= 0) {
-    countEl.style.color = '#f87171';
-  } else if (count <= 5) {
-    countEl.style.color = '#fb923c';
-  } else {
-    countEl.style.color = '#a5b4fc';
   }
 }
 
@@ -536,8 +505,7 @@ async function callAPI(systemContent, userContent, temperature) {
         { role: 'system', content: systemContent },
         { role: 'user', content: userContent }
       ],
-      temperature,
-      isMainCard: false
+      temperature
     });
 
     if (response.error || !response.ok) {

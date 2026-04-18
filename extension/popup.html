@@ -91,7 +91,7 @@
     .license-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
     .stat-row {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
       gap: 6px; margin-top: 0;
     }
 
@@ -348,10 +348,6 @@
     </div>
 
     <div class="stat-row">
-      <div class="stat-card" id="freemiumCard" style="display:none;">
-        <div class="stat-val" id="freemiumCount" style="color:#a5b4fc;">15</div>
-        <div class="stat-lbl">Free Grades</div>
-      </div>
       <div class="stat-card">
         <div class="stat-val" id="apiTokens">0</div>
         <div class="stat-lbl">Tokens</div>

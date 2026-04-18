@@ -205,13 +205,6 @@ const BADGE_STYLES = `
   .tier-C { background:linear-gradient(135deg,rgba(251,146,60,0.3),rgba(251,146,60,0.1)); color:#fb923c; border-color:rgba(251,146,60,0.45); }
   .tier-D { background:linear-gradient(135deg,rgba(248,113,113,0.3),rgba(248,113,113,0.1)); color:#f87171; border-color:rgba(248,113,113,0.45); }
   .tier-F { background:linear-gradient(135deg,rgba(220,38,38,0.4),rgba(220,38,38,0.15)); color:#ff6b6b; border-color:rgba(220,38,38,0.55); }
-  .upgrade {
-    background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(99,102,241,0.12));
-    color:#a5b4fc; border-color:rgba(99,102,241,0.5);
-    font-size:10px; text-transform:none; cursor:pointer;
-    padding:4px 10px;
-  }
-  .upgrade:hover { background:linear-gradient(135deg,rgba(99,102,241,0.45),rgba(99,102,241,0.2)); }
 `;
 
 function tierColor(tier) {
@@ -301,21 +294,6 @@ function renderError(host, msg) {
   b.style.color = '#f87171';
   b.textContent = '!';
   host._tip = `<div style="color:#f87171;font-weight:700;">Error</div><div style="color:#9090a0;font-size:12px;margin-top:4px;">${escapeHtml(msg)}</div>`;
-}
-
-function renderUpgradePrompt(host) {
-  if (!host) return;
-  const b = host.shadowRoot?.getElementById('b');
-  if (!b) return;
-  b.className = 'badge upgrade';
-  b.textContent = '\u2B06 Upgrade to Pro';
-  host._tip = `<div style="color:#a5b4fc;font-weight:700;font-size:14px;margin-bottom:8px;">Free Grades Exhausted</div>
-    <div style="color:#9090a0;font-size:12px;line-height:1.5;">You\u2019ve used all 15 free lifetime grades.<br><br>Upgrade to <strong style="color:#a5b4fc;">Pro</strong> for unlimited AI job grading, cover letter generation, resume tailoring, and more.</div>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);color:#71717a;font-size:11px;">Click the JobTiered extension icon \u2192 Upgrade Plan</div>`;
-}
-
-function removeBadgeSilently(host) {
-  if (host) host.remove();
 }
 
 function applyDimming(element, mode, tierVal) {
@@ -710,48 +688,21 @@ Grade pay harshly if the estimated pay is below the minimum desired salary.`;
   return `No salary anchors provided. Estimate the market salary range for each role based on title, location, seniority, and industry. Populate market_range accordingly.`;
 }
 
-function isPaidLicense(status) {
-  return status === 'valid' || status === 'byok' || status === 'offline';
-}
-
-async function checkLicense(type) {
-  const { licenseStatus, openRouterKey, freemiumRemaining, session } = await chrome.storage.local.get([
-    'licenseStatus', 'openRouterKey', 'freemiumRemaining', 'session'
+async function checkLicense() {
+  const { licenseStatus, openRouterKey } = await chrome.storage.local.get([
+    'licenseStatus', 'openRouterKey'
   ]);
-
-  if (licenseStatus === 'byok' && openRouterKey) return { allowed: true, isPaid: true };
-  if (licenseStatus === 'valid' || licenseStatus === 'offline') return { allowed: true, isPaid: true };
-
-  if (!session?.access_token) {
-    return { allowed: false, isPaid: false, noAccount: true };
-  }
-
-  if (type === 'detail') {
-    const remaining = freemiumRemaining ?? 15;
-    if (remaining > 0) return { allowed: true, isPaid: false, freemiumRemaining: remaining };
-    return { allowed: false, isPaid: false, freemiumExhausted: true };
-  }
-
-  return { allowed: false, isPaid: false, isSideCard: true };
+  if (licenseStatus === 'byok' && openRouterKey) return true;
+  if (licenseStatus === 'valid' || licenseStatus === 'offline') return true;
+  return false;
 }
 
 async function gradeBatch(jobs, type) {
-  const licenseCheck = await checkLicense(type);
-
-  if (!licenseCheck.allowed) {
-    if (licenseCheck.freemiumExhausted) {
-      jobs.forEach(j => renderUpgradePrompt(j._host));
-    } else if (licenseCheck.isSideCard) {
-      jobs.forEach(j => removeBadgeSilently(j._host));
-    } else if (licenseCheck.noAccount) {
-      jobs.forEach(j => renderError(j._host, 'Sign in to grade jobs'));
-    } else {
-      jobs.forEach(j => renderError(j._host, 'License required'));
-    }
+  const allowed = await checkLicense();
+  if (!allowed) {
+    jobs.forEach(j => renderError(j._host, 'License required'));
     return;
   }
-
-  const isMainCard = type === 'detail';
 
   const { currentSalary, minSalary, resumeText, savedJobs, evalMode } = await chrome.storage.local.get([
     'currentSalary', 'minSalary', 'resumeText', 'savedJobs', 'evalMode'
@@ -811,25 +762,8 @@ Tier rules:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
       ],
-      temperature: 0.1,
-      isMainCard
+      temperature: 0.1
     });
-
-    if (response.freemiumExhausted) {
-      jobs.forEach(j => renderUpgradePrompt(j._host));
-      return;
-    }
-
-    if (response.error === 'freemium_exhausted') {
-      await chrome.storage.local.set({ freemiumRemaining: 0 });
-      jobs.forEach(j => renderUpgradePrompt(j._host));
-      return;
-    }
-
-    if (response.silent) {
-      jobs.forEach(j => removeBadgeSilently(j._host));
-      return;
-    }
 
     if (response.error || !response.ok) {
       const msg = response.data?.error?.message || response.error || 'API Error';
@@ -839,10 +773,6 @@ Tier rules:
     if (!response.data?.choices?.[0]) throw new Error('Invalid API response structure');
 
     retryDelay = 100;
-
-    if (response.freemiumRemaining !== undefined && response.freemiumRemaining !== null) {
-      await chrome.storage.local.set({ freemiumRemaining: response.freemiumRemaining });
-    }
 
     const usage = response.data.usage;
     if (usage) {

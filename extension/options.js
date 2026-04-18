@@ -7,7 +7,7 @@ const CANCEL_SUB_LINK = "https://billing.stripe.com/p/login/14A28scWy2Nm6wGbhA93
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'openRouterKey', 'currentSalary', 'minSalary', 'resumeText',
-    'session', 'licenseStatus', 'licensePlan', 'freemiumRemaining'
+    'session', 'licenseStatus', 'licensePlan'
   ]);
 
   if (data.openRouterKey) document.getElementById('apiKey').value = data.openRouterKey;
@@ -15,11 +15,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (data.minSalary)     document.getElementById('minSalary').value = data.minSalary;
   if (data.resumeText)    document.getElementById('resumeText').value = data.resumeText;
 
-  renderLicenseStatus(data.licenseStatus, data.licensePlan, data.session, data.freemiumRemaining);
+  renderLicenseStatus(data.licenseStatus, data.licensePlan, data.session);
 
   if (data.session?.access_token) {
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-    renderLicenseStatus(response?.licenseStatus || data.licenseStatus, response?.licensePlan, data.session, response?.freemiumRemaining);
+    renderLicenseStatus(response?.licenseStatus || data.licenseStatus, response?.licensePlan, data.session);
   }
 });
 
@@ -99,7 +99,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
 
-    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data, response?.freemiumRemaining);
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data);
     showToast('Signed in successfully.', 'success');
 
   } catch (error) {
@@ -162,7 +162,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
       toggleToLogin();
 
       const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-      renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data, response?.freemiumRemaining);
+      renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data);
 
       document.getElementById('onboardingBanner').style.display = 'block';
       showToast('Account created. Choose a plan to get started.', 'success');
@@ -186,7 +186,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('loginPassword').value = '';
   document.getElementById('errBanner').style.display = 'none';
   document.getElementById('onboardingBanner').style.display = 'none';
-  renderLicenseStatus('none', null, null, null);
+  renderLicenseStatus('none', null, null);
   showToast('Signed out.', 'success');
 });
 
@@ -218,8 +218,8 @@ document.getElementById('refreshStatusBtn').addEventListener('click', async () =
   btn.disabled = true;
   try {
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
-    const { session, freemiumRemaining } = await chrome.storage.local.get(['session', 'freemiumRemaining']);
-    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, session, response?.freemiumRemaining ?? freemiumRemaining);
+    const { session } = await chrome.storage.local.get('session');
+    renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, session);
     showToast('License status updated.', 'success');
   } finally {
     btn.textContent = 'Refresh License Status';
@@ -267,7 +267,7 @@ async function handleDeleteAccount() {
     showToast('Account deleted successfully.', 'success');
 
     setTimeout(() => {
-      renderLicenseStatus('none', null, null, null);
+      renderLicenseStatus('none', null, null);
       document.getElementById('loginEmail').value = '';
       document.getElementById('loginPassword').value = '';
       document.getElementById('apiKey').value = '';
@@ -283,7 +283,7 @@ async function handleDeleteAccount() {
   }
 }
 
-function renderLicenseStatus(status, plan, session, freemiumRemaining) {
+function renderLicenseStatus(status, plan, session) {
   const box  = document.getElementById('licenseStatusBox');
   const text = document.getElementById('licenseStatusText');
   const sub  = document.getElementById('licenseStatusSub');
@@ -348,14 +348,8 @@ function renderLicenseStatus(status, plan, session, freemiumRemaining) {
   }
 
   box.className = 'status-box invalid';
-  const remaining = freemiumRemaining ?? 15;
-  if (remaining > 0) {
-    text.textContent = `Free Tier — ${remaining} grade${remaining !== 1 ? 's' : ''} remaining`;
-    sub.textContent = 'You can grade up to 15 main job listings for free. Upgrade for unlimited access.';
-  } else {
-    text.textContent = 'Free Grades Exhausted';
-    sub.textContent = 'You\u2019ve used all 15 free grades. Choose a plan below for unlimited grading.';
-  }
+  text.textContent = 'No Active Plan';
+  sub.textContent  = 'Choose a plan below to unlock all features';
   purchaseOptions.style.display = 'flex';
   purchaseOptions.style.flexDirection = 'column';
   cancelBtn.style.display = 'none';
