@@ -70,6 +70,7 @@ document.getElementById('keywordHighlight').addEventListener('change', async (e)
 });
 
 document.getElementById('openOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());
+document.getElementById('upgradePlan').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 document.getElementById('clearCache').addEventListener('click', async () => {
   await chrome.storage.local.remove(['gradeHistory', 'apiTokens']);
@@ -145,7 +146,26 @@ document.getElementById('copyCoverLetter').addEventListener('click', () => {
 
 document.getElementById('closeCoverLetter').addEventListener('click', hideCoverLetter);
 
+document.getElementById('copyTweakResume').addEventListener('click', () => {
+  const ta = document.getElementById('tweakResumeText');
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const btn = document.getElementById('copyTweakResume');
+    const prev = btn.textContent; btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = prev, 1500);
+  });
+});
+
+document.getElementById('closeTweakResume').addEventListener('click', hideTweakResume);
+
 function hideCoverLetter() { document.getElementById('coverLetterPanel').style.display = 'none'; }
+function hideTweakResume() { document.getElementById('tweakResumePanel').style.display = 'none'; }
+
+function showTweakResume(title, text) {
+  document.getElementById('tweakResumeTitle').textContent = `Tweak Resume — ${title}`;
+  document.getElementById('tweakResumeText').value = text;
+  document.getElementById('tweakResumePanel').style.display = 'block';
+  document.getElementById('tweakResumePanel').scrollIntoView({ behavior: 'smooth' });
+}
 
 async function setStage(index, stage) {
   allSavedJobs[index].stage = stage;
@@ -183,6 +203,49 @@ Resume: ${resumeText || 'Not provided — write a general cover letter.'}`;
   const resp = await callAPI(sys, usr, 0.5);
   if (resp.error) { showCoverLetter(job.title, `Error: ${resp.error}`); return; }
   showCoverLetter(job.title, resp.text);
+}
+
+async function generateTweakedResume(index) {
+  const job = allSavedJobs[index];
+  if (!job) return;
+  const { openRouterKey, resumeText, licenseStatus } = await chrome.storage.local.get([
+    'openRouterKey', 'resumeText', 'licenseStatus'
+  ]);
+  const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  if (!canUse) { showTweakResume(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
+  if (!resumeText) { showTweakResume(job.title, 'Error: No resume found. Paste your resume in Settings first.'); return; }
+  if (!job.description) { showTweakResume(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
+
+  showTweakResume(job.title, 'Generating tailored resume\u2026');
+
+  const sys = `You are an expert resume writer and career coach. You will receive a user's original resume and a job description. Your task is to rewrite the resume so it is better tailored to the specific job.
+
+Guidelines:
+- Keep the same overall structure, sections, and formatting as the original resume.
+- Do NOT fabricate experience, skills, or qualifications the candidate does not have.
+- Adjust language, phrasing, and emphasis to mirror keywords and requirements from the job description.
+- Reorder bullet points to lead with the most relevant experience for this role.
+- Incorporate relevant keywords from the job posting naturally into the resume text.
+- Quantify achievements where possible based on existing information.
+- Keep it concise and professional.
+- This should be a reasonable tailoring, not a complete rewrite. The original voice and content should be preserved.
+- Output ONLY the rewritten resume text, no commentary or explanation.`;
+
+  const usr = `Job Title: ${job.title}
+Company: ${job.company || 'Unknown'}
+Location: ${job.location || 'Not listed'}
+
+Job Description:
+${job.description}
+
+---
+
+Original Resume:
+${resumeText}`;
+
+  const resp = await callAPI(sys, usr, 0.4);
+  if (resp.error) { showTweakResume(job.title, `Error: ${resp.error}`); return; }
+  showTweakResume(job.title, resp.text);
 }
 
 async function callAPI(systemContent, userContent, temperature) {
@@ -310,6 +373,12 @@ function renderSavedJobs() {
     coverBtn.textContent = 'Cover Letter';
     coverBtn.addEventListener('click', () => generateCoverLetter(realIndex));
     actions.appendChild(coverBtn);
+
+    const tweakBtn = document.createElement('button');
+    tweakBtn.className = 'job-act-btn primary';
+    tweakBtn.textContent = 'Tweak Resume';
+    tweakBtn.addEventListener('click', () => generateTweakedResume(realIndex));
+    actions.appendChild(tweakBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'job-act-btn danger-sm';
