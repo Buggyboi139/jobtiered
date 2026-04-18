@@ -91,7 +91,7 @@
     .license-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
     .stat-row {
-      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
       gap: 6px; margin-top: 0;
     }
 
@@ -127,7 +127,7 @@
       border: 1px solid rgba(74,158,255,0.3);
     }
 
-    .actions-section { padding: 10px 16px 0; display: flex; gap: 5px; }
+    .actions-section { padding: 10px 16px 0; display: flex; gap: 8px; }
 
     .act-btn {
       flex: 1; padding: 7px 6px; border-radius: var(--radius-sm);
@@ -343,6 +343,10 @@
     </div>
 
     <div class="stat-row">
+      <div class="stat-card" id="freemiumCard" style="display:none;">
+        <div class="stat-val" id="freemiumCount" style="color:#a5b4fc;">15</div>
+        <div class="stat-lbl">Free Grades</div>
+      </div>
       <div class="stat-card">
         <div class="stat-val" id="apiTokens">0</div>
         <div class="stat-lbl">Tokens</div>
@@ -357,8 +361,8 @@
       </div>
     </div>
     <button class="upgrade-cta" id="upgradePlan">
-      Upgrade Plan
-      <span class="cta-sub">Manage subscription, API keys, and account</span>
+      <span id="ctaLabel">Upgrade Plan</span>
+      <span class="cta-sub" id="ctaSub">Manage subscription, API keys, and account</span>
     </button>
   </div>
 
@@ -380,7 +384,6 @@
   </div>
 
   <div class="actions-section">
-    <button class="act-btn" id="openOptions">Settings</button>
     <button class="act-btn" id="clearCache">Clear Cache</button>
     <button class="act-btn danger" id="clearSaved">Clear All</button>
   </div>

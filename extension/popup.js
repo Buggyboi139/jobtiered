@@ -11,12 +11,17 @@ const LICENSE_LABELS = {
   past_due: { text: 'Past Due',   cls: 'invalid' },
   invalid:  { text: 'No Plan',    cls: 'invalid' },
   canceled: { text: 'Canceled',   cls: 'invalid' },
-  none:     { text: 'No License', cls: 'none'    }
+  none:     { text: 'Free Tier',  cls: 'none'    }
 };
+
+function isPaidStatus(status) {
+  return status === 'valid' || status === 'byok' || status === 'offline';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
-    'apiTokens', 'savedJobs', 'gradeHistory', 'evalMode', 'keywordHighlight'
+    'apiTokens', 'savedJobs', 'gradeHistory', 'evalMode', 'keywordHighlight',
+    'freemiumRemaining'
   ]);
 
   if (data.apiTokens) document.getElementById('apiTokens').textContent = fmtNum(data.apiTokens);
@@ -31,7 +36,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderSavedJobs();
 
   const { licenseStatus } = await chrome.storage.local.get('licenseStatus');
-  updateLicensePill(licenseStatus || 'none');
+  const status = licenseStatus || 'none';
+  updateLicensePill(status);
+  updateCtaButton(status);
+  updateFreemiumDisplay(status, data.freemiumRemaining);
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.licenseStatus) {
+    const status = changes.licenseStatus.newValue || 'none';
+    updateLicensePill(status);
+    updateCtaButton(status);
+    chrome.storage.local.get('freemiumRemaining').then(({ freemiumRemaining }) => {
+      updateFreemiumDisplay(status, freemiumRemaining);
+    });
+  }
+  if (changes.freemiumRemaining) {
+    chrome.storage.local.get('licenseStatus').then(({ licenseStatus }) => {
+      updateFreemiumDisplay(licenseStatus || 'none', changes.freemiumRemaining.newValue);
+    });
+  }
 });
 
 function fmtNum(n) {
@@ -46,6 +70,41 @@ function updateLicensePill(status) {
   const info = LICENSE_LABELS[status] || LICENSE_LABELS.none;
   pill.className = `license-pill ${info.cls}`;
   lbl.textContent = info.text;
+}
+
+function updateCtaButton(status) {
+  const label = document.getElementById('ctaLabel');
+  const sub = document.getElementById('ctaSub');
+
+  if (isPaidStatus(status)) {
+    label.textContent = 'Manage Account';
+    sub.textContent = 'Subscription, API keys, and account settings';
+  } else {
+    label.textContent = 'Upgrade Plan';
+    sub.textContent = 'Unlock unlimited grading, cover letters, and more';
+  }
+}
+
+function updateFreemiumDisplay(status, remaining) {
+  const card = document.getElementById('freemiumCard');
+  const countEl = document.getElementById('freemiumCount');
+
+  if (isPaidStatus(status)) {
+    card.style.display = 'none';
+    return;
+  }
+
+  const count = remaining ?? 15;
+  card.style.display = '';
+  countEl.textContent = count;
+
+  if (count <= 0) {
+    countEl.style.color = '#f87171';
+  } else if (count <= 5) {
+    countEl.style.color = '#fb923c';
+  } else {
+    countEl.style.color = '#a5b4fc';
+  }
 }
 
 function setModeUI(mode) {
@@ -69,7 +128,6 @@ document.getElementById('keywordHighlight').addEventListener('change', async (e)
   await chrome.storage.local.set({ keywordHighlight: e.target.checked });
 });
 
-document.getElementById('openOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());
 document.getElementById('upgradePlan').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 document.getElementById('clearCache').addEventListener('click', async () => {
@@ -188,7 +246,7 @@ async function generateCoverLetter(index) {
     'openRouterKey', 'resumeText', 'licenseStatus'
   ]);
   const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
-  if (!canUse) { showCoverLetter(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
+  if (!canUse) { showCoverLetter(job.title, 'Error: Upgrade to Pro to generate cover letters.'); return; }
   if (!job.description) { showCoverLetter(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
 
   showCoverLetter(job.title, 'Generating cover letter…');
@@ -212,8 +270,8 @@ async function generateTweakedResume(index) {
     'openRouterKey', 'resumeText', 'licenseStatus'
   ]);
   const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
-  if (!canUse) { showTweakResume(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
-  if (!resumeText) { showTweakResume(job.title, 'Error: No resume found. Paste your resume in Settings first.'); return; }
+  if (!canUse) { showTweakResume(job.title, 'Error: Upgrade to Pro to tailor resumes.'); return; }
+  if (!resumeText) { showTweakResume(job.title, 'Error: No resume found. Paste your resume in Account Management.'); return; }
   if (!job.description) { showTweakResume(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
 
   showTweakResume(job.title, 'Generating tailored resume\u2026');
@@ -257,7 +315,8 @@ async function callAPI(systemContent, userContent, temperature) {
         { role: 'system', content: systemContent },
         { role: 'user', content: userContent }
       ],
-      temperature
+      temperature,
+      isMainCard: false
     });
 
     if (response.error || !response.ok) {
