@@ -23,45 +23,12 @@ async function checkLicenseCacheAge() {
   }
 }
 
-async function refreshSession(session) {
-  if (!session?.refresh_token) return null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ refresh_token: session.refresh_token })
-    });
-    if (!res.ok) return null;
-    const newSession = await res.json();
-    await chrome.storage.local.set({ session: newSession });
-    return newSession;
-  } catch (_) {
-    return null;
-  }
-}
-
-async function getValidSession() {
-  const { session } = await chrome.storage.local.get("session");
-  if (!session?.access_token) return null;
-
-  const payload = JSON.parse(atob(session.access_token.split(".")[1]));
-  const expiresAt = payload.exp * 1000;
-  if (Date.now() < expiresAt - 60_000) return session;
-
-  const refreshed = await refreshSession(session);
-  return refreshed || session;
-}
-
 async function validateAndCacheLicense() {
-  const { licenseMode } = await chrome.storage.local.get("licenseMode");
-  const session = await getValidSession();
+  const { licenseMode, session } = await chrome.storage.local.get(["licenseMode", "session"]);
 
   if (!session?.access_token) {
     await chrome.storage.local.set({
-      licenseStatus: licenseMode === "byok" ? "byok" : "none",
+      licenseStatus: "none",
       licenseCheckedAt: Date.now()
     });
     return;
@@ -76,10 +43,6 @@ async function validateAndCacheLicense() {
     });
 
     if (!resp.ok) {
-      if (resp.status === 401) {
-        const refreshed = await refreshSession(session);
-        if (refreshed) return validateAndCacheLicense();
-      }
       const cached = await chrome.storage.local.get("licenseStatus");
       if (!cached.licenseStatus || cached.licenseStatus === "none") {
         await chrome.storage.local.set({ licenseStatus: "invalid", licenseCheckedAt: Date.now() });
@@ -90,17 +53,26 @@ async function validateAndCacheLicense() {
     const data = await resp.json();
     const sub = data[0];
 
+    if (licenseMode === "byok") {
+      if (sub && (sub.status === "active" || sub.status === "lifetime")) {
+        await chrome.storage.local.set({
+          licenseStatus: "byok",
+          licenseCheckedAt: Date.now()
+        });
+      } else {
+        await chrome.storage.local.set({
+          licenseStatus: "invalid",
+          licenseCheckedAt: Date.now()
+        });
+      }
+      return;
+    }
+
     if (sub && (sub.status === "active" || sub.status === "lifetime")) {
-      const isLifetime = sub.status === "lifetime";
       await chrome.storage.local.set({
-        licenseStatus: isLifetime ? "lifetime" : "valid",
+        licenseStatus: "valid",
         licensePlan: sub.price_id || "unknown",
         licenseExpiry: null,
-        licenseCheckedAt: Date.now()
-      });
-    } else if (licenseMode === "byok") {
-      await chrome.storage.local.set({
-        licenseStatus: "byok",
         licenseCheckedAt: Date.now()
       });
     } else {
@@ -138,8 +110,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleOpenRouterFetch(request) {
-  const { licenseMode, licenseStatus, openRouterKey } = await chrome.storage.local.get([
-    "licenseMode", "licenseStatus", "openRouterKey"
+  const { licenseMode, licenseStatus, openRouterKey, session, resumeText } = await chrome.storage.local.get([
+    "licenseMode", "licenseStatus", "openRouterKey", "session", "resumeText"
   ]);
 
   if (licenseMode === "byok") {
@@ -165,7 +137,6 @@ async function handleOpenRouterFetch(request) {
   }
 
   const isValid = licenseStatus === "valid" || licenseStatus === "offline" || licenseStatus === "lifetime";
-  const session = await getValidSession();
   if (!isValid || !session?.access_token) return { error: "Invalid license or not logged in." };
 
   const userContentObj = request.messages.find(m => m.role === "user")?.content || "";
@@ -179,21 +150,33 @@ async function handleOpenRouterFetch(request) {
     },
     body: JSON.stringify({
       jobDescription: userContentObj,
-      resumeText: "",
+      resumeText: resumeText || "No resume provided.",
       messages: request.messages,
       model: request.model,
       temperature: request.temperature
     })
   });
 
-  const data = await resp.json();
-  if (!resp.ok) return { error: data.error || "API error" };
-
-  return {
-    status: resp.status,
-    ok: true,
-    data: {
-      choices: [{ message: { content: data.result } }]
+  if (!resp.ok) {
+    try {
+      const data = await resp.json();
+      return { error: data.error || `Server Error ${resp.status}` };
+    } catch (e) {
+      return { error: `Server Error ${resp.status}` };
     }
+  }
+
+  const data = await resp.json();
+  
+  if (data.error) {
+     return { error: data.error };
+  }
+  
+  return { 
+    status: resp.status,
+    ok: true, 
+    data: { 
+      choices: [{ message: { content: data.result } }]
+    } 
   };
 }
