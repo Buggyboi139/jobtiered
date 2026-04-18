@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Job Tier Rater Pro",
+  "name": "JobTiered",
   "version": "5.0",
   "description": "AI-powered job grading on LinkedIn, Indeed, Glassdoor, and ZipRecruiter.",
   "permissions": [
