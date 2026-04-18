@@ -2,7 +2,7 @@ let currentFilter = 'all';
 let pipelineFilter = '';
 let allSavedJobs = [];
 
-const STAGES = ['saved', 'applied', 'interview', 'offer', 'rejected'];
+const STAGES = ['saved', 'applied', 'offer', 'rejected'];
 
 const LICENSE_LABELS = {
   valid:    { text: 'Active',    cls: 'valid'   },
@@ -84,13 +84,12 @@ document.getElementById('clearSaved').addEventListener('click', async () => {
   allSavedJobs = [];
   document.getElementById('savedCount').textContent = '0';
   renderSavedJobs();
-  hideAllPanels();
+  hideCoverLetter();
 });
 
 document.getElementById('filterAll').addEventListener('click', () => setFilter('all'));
 document.getElementById('filterApplied').addEventListener('click', () => setFilter('applied'));
 document.getElementById('filterPending').addEventListener('click', () => setFilter('pending'));
-document.getElementById('filterInterview').addEventListener('click', () => setFilter('interview'));
 
 document.getElementById('pipelineFilter').addEventListener('change', (e) => {
   pipelineFilter = e.target.value;
@@ -99,7 +98,7 @@ document.getElementById('pipelineFilter').addEventListener('change', (e) => {
 
 function setFilter(f) {
   currentFilter = f;
-  ['All', 'Applied', 'Pending', 'Interview'].forEach(name => {
+  ['All', 'Applied', 'Pending'].forEach(name => {
     const el = document.getElementById('filter' + name);
     if (el) el.classList.toggle('active', f === name.toLowerCase() || (name === 'All' && f === 'all'));
   });
@@ -147,20 +146,7 @@ document.getElementById('copyCoverLetter').addEventListener('click', () => {
 
 document.getElementById('closeCoverLetter').addEventListener('click', hideCoverLetter);
 
-document.getElementById('copyInterview').addEventListener('click', () => {
-  const el = document.getElementById('interviewQuestions');
-  navigator.clipboard.writeText(el.innerText).then(() => {
-    const btn = document.getElementById('copyInterview');
-    const prev = btn.textContent; btn.textContent = '✓ Copied!';
-    setTimeout(() => btn.textContent = prev, 1500);
-  });
-});
-
-document.getElementById('closeInterview').addEventListener('click', hideInterview);
-
 function hideCoverLetter() { document.getElementById('coverLetterPanel').style.display = 'none'; }
-function hideInterview()   { document.getElementById('interviewPanel').style.display = 'none'; }
-function hideAllPanels()   { hideCoverLetter(); hideInterview(); }
 
 async function setStage(index, stage) {
   allSavedJobs[index].stage = stage;
@@ -182,7 +168,7 @@ async function generateCoverLetter(index) {
   const { openRouterKey, resumeText, licenseMode, licenseStatus } = await chrome.storage.local.get([
     'openRouterKey', 'resumeText', 'licenseMode', 'licenseStatus'
   ]);
-  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'lifetime');
+  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
   if (!canUse) { showCoverLetter(job.title, 'Error: No valid license or API key. Go to Settings.'); return; }
   if (!job.description) { showCoverLetter(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
 
@@ -198,45 +184,6 @@ Resume: ${resumeText || 'Not provided — write a general cover letter.'}`;
   const resp = await callAPI(sys, usr, 0.5);
   if (resp.error) { showCoverLetter(job.title, `Error: ${resp.error}`); return; }
   showCoverLetter(job.title, resp.text);
-}
-
-async function generateInterviewPrep(index) {
-  const job = allSavedJobs[index];
-  if (!job) return;
-  const { openRouterKey, resumeText, licenseMode, licenseStatus } = await chrome.storage.local.get([
-    'openRouterKey', 'resumeText', 'licenseMode', 'licenseStatus'
-  ]);
-  const canUse = licenseMode === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline' || licenseStatus === 'lifetime');
-  if (!canUse) { showInterview(job.title, 'Error: No valid license. Go to Settings.'); return; }
-  if (!job.description) { showInterview(job.title, 'Error: No description saved for this job.'); return; }
-
-  showInterview(job.title, '<em style="color:#7070a0">Generating questions…</em>');
-
-  const sys = `You are an expert interview coach. Generate targeted interview questions for this candidate and role.
-Output ONLY a structured list — no preamble. Format:
-## Behavioral (3 questions)
-1. ...
-## Technical (4 questions)
-1. ...
-## Culture Fit (2 questions)
-1. ...
-## Questions to Ask Them (2 questions)
-1. ...`;
-
-  const usr = `Role: ${job.title} at ${job.company || 'Unknown'}
-Description: ${job.description}
-Resume: ${resumeText || 'Not provided.'}`;
-
-  const resp = await callAPI(sys, usr, 0.3);
-  if (resp.error) { showInterview(job.title, `Error: ${resp.error}`); return; }
-  showInterview(job.title, formatInterviewText(resp.text));
-}
-
-function formatInterviewText(text) {
-  return text
-    .replace(/^## (.+)$/gm, '<div style="color:#4a9eff;font-size:11px;font-weight:700;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.05em;">$1</div>')
-    .replace(/^\d+\.\s+(.+)$/gm, '<div style="margin:3px 0;padding-left:8px;border-left:2px solid rgba(255,255,255,0.1);">$1</div>')
-    .replace(/\n/g, '');
 }
 
 async function callAPI(systemContent, userContent, temperature) {
@@ -272,19 +219,10 @@ async function callAPI(systemContent, userContent, temperature) {
 }
 
 function showCoverLetter(title, text) {
-  hideInterview();
   document.getElementById('coverLetterTitle').textContent = `Cover Letter — ${title}`;
   document.getElementById('coverLetterText').value = text;
   document.getElementById('coverLetterPanel').style.display = 'block';
   document.getElementById('coverLetterPanel').scrollIntoView({ behavior: 'smooth' });
-}
-
-function showInterview(title, html) {
-  hideCoverLetter();
-  document.getElementById('interviewTitle').textContent = `Interview Prep — ${title}`;
-  document.getElementById('interviewQuestions').innerHTML = html;
-  document.getElementById('interviewPanel').style.display = 'block';
-  document.getElementById('interviewPanel').scrollIntoView({ behavior: 'smooth' });
 }
 
 function renderSavedJobs() {
@@ -294,8 +232,7 @@ function renderSavedJobs() {
   let jobs = [...allSavedJobs];
 
   if (currentFilter === 'applied') jobs = jobs.filter(j => j.applied || j.stage === 'applied');
-  if (currentFilter === 'pending')   jobs = jobs.filter(j => !j.applied && j.stage !== 'rejected');
-  if (currentFilter === 'interview') jobs = jobs.filter(j => j.stage === 'interview');
+  if (currentFilter === 'pending') jobs = jobs.filter(j => !j.applied && j.stage !== 'rejected');
   if (pipelineFilter) jobs = jobs.filter(j => (j.stage || 'saved') === pipelineFilter);
 
   if (jobs.length === 0) {
@@ -374,12 +311,6 @@ function renderSavedJobs() {
     coverBtn.textContent = '📝 Cover';
     coverBtn.addEventListener('click', () => generateCoverLetter(realIndex));
     actions.appendChild(coverBtn);
-
-    const prepBtn = document.createElement('button');
-    prepBtn.className = 'job-act-btn warn';
-    prepBtn.textContent = '🎤 Prep';
-    prepBtn.addEventListener('click', () => generateInterviewPrep(realIndex));
-    actions.appendChild(prepBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'job-act-btn danger-sm';

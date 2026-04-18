@@ -110,13 +110,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleOpenRouterFetch(request) {
-  const { licenseMode, licenseStatus, openRouterKey, session, resumeText } = await chrome.storage.local.get([
-    "licenseMode", "licenseStatus", "openRouterKey", "session", "resumeText"
+  const { licenseMode, licenseStatus, openRouterKey, session } = await chrome.storage.local.get([
+    "licenseMode", "licenseStatus", "openRouterKey", "session"
   ]);
 
   if (licenseMode === "byok") {
     if (!openRouterKey) return { error: "No API key configured." };
-    
+
     const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -132,14 +132,18 @@ async function handleOpenRouterFetch(request) {
       })
     });
 
-    const data = await resp.json();
+    const byokText = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(byokText);
+    } catch {
+      return { error: `OpenRouter returned invalid response (${resp.status})` };
+    }
     return { status: resp.status, ok: resp.ok, data };
   }
 
-  const isValid = licenseStatus === "valid" || licenseStatus === "offline" || licenseStatus === "lifetime";
+  const isValid = licenseStatus === "valid" || licenseStatus === "offline";
   if (!isValid || !session?.access_token) return { error: "Invalid license or not logged in." };
-
-  const userContentObj = request.messages.find(m => m.role === "user")?.content || "";
 
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
     method: "POST",
@@ -149,34 +153,23 @@ async function handleOpenRouterFetch(request) {
       "apikey": SUPABASE_ANON_KEY
     },
     body: JSON.stringify({
-      jobDescription: userContentObj,
-      resumeText: resumeText || "No resume provided.",
       messages: request.messages,
       model: request.model,
       temperature: request.temperature
     })
   });
 
-  if (!resp.ok) {
-    try {
-      const data = await resp.json();
-      return { error: data.error || `Server Error ${resp.status}` };
-    } catch (e) {
-      return { error: `Server Error ${resp.status}` };
-    }
+  const text = await resp.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { error: `Server returned invalid response (${resp.status})` };
   }
 
-  const data = await resp.json();
-  
-  if (data.error) {
-     return { error: data.error };
+  if (!resp.ok || data.error) {
+    return { error: data.error || `Server Error ${resp.status}` };
   }
-  
-  return { 
-    status: resp.status,
-    ok: true, 
-    data: { 
-      choices: [{ message: { content: data.result } }]
-    } 
-  };
+
+  return { status: resp.status, ok: true, data };
 }

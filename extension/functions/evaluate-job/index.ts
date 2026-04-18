@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -28,8 +28,8 @@ serve(async (req) => {
       .single();
 
     if (subError || (subData?.status !== 'active' && subData?.status !== 'lifetime')) {
-      return new Response(JSON.stringify({ error: 'Active or lifetime subscription required' }), { 
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Active or lifetime subscription required' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -37,11 +37,16 @@ serve(async (req) => {
     let requestData;
     try {
       requestData = JSON.parse(bodyText);
-    } catch (e) {
-      throw new Error("Invalid request data sent from extension");
+    } catch {
+      throw new Error("Invalid JSON in request body");
     }
 
-    const { jobDescription, resumeText, model } = requestData;
+    const { messages, model, temperature } = requestData;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error("Missing or invalid messages array in request");
+    }
+
     const selectedModel = model || "google/gemini-2.5-flash-lite";
 
     const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -54,33 +59,34 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: selectedModel,
-        messages:[
-          { role: "system", content: "You are an expert technical recruiter evaluating a job fit. Score this job against the resume on a scale of 1-100." },
-          { role: "user", content: `Resume: ${resumeText}\n\nJob Description: ${jobDescription}` }
-        ]
+        messages,
+        temperature: temperature ?? 0.1
       })
     });
 
     const aiTextData = await openRouterResponse.text();
     let aiData;
-    
+
     try {
       aiData = JSON.parse(aiTextData);
-    } catch (e) {
-      throw new Error(`OpenRouter API returned an invalid format. Raw response: ${aiTextData.substring(0, 100)}...`);
+    } catch {
+      throw new Error(`OpenRouter returned invalid JSON: ${aiTextData.substring(0, 200)}`);
     }
 
     if (aiData.error) {
-       return new Response(JSON.stringify({ error: `OpenRouter Error: ${aiData.error.message}` }), {
-         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-       });
+      const errMsg = typeof aiData.error === 'string'
+        ? aiData.error
+        : aiData.error.message || JSON.stringify(aiData.error);
+      return new Response(JSON.stringify({ error: `OpenRouter Error: ${errMsg}` }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     if (!aiData.choices || !aiData.choices[0]) {
-       throw new Error("Unexpected response structure from OpenRouter.");
+      throw new Error("Unexpected response structure from OpenRouter");
     }
 
-    return new Response(JSON.stringify({ result: aiData.choices[0].message.content }), {
+    return new Response(JSON.stringify(aiData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
