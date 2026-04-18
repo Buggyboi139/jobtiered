@@ -405,7 +405,7 @@ function getDetailJob() {
       '.jobsearch-JobInfoHeader-subtitle .companyLocation',
       '[data-testid="jobsearch-JobInfoHeader-companyLocation"]'
     ]);
-    container = qFirst(document, ['.jobsearch-JobInfoHeader-title-container']) || titleEl?.parentElement;
+    container = qFirst(document,['.jobsearch-JobInfoHeader-title-container']) || titleEl?.parentElement;
     description = qText(document, [
       '#jobDescriptionText',
       '[data-testid="jobsearch-JobComponent-description"]',
@@ -426,7 +426,7 @@ function getDetailJob() {
       '[class*="EmployerProfile_compactEmployerName"]',
       '[class*="employer-name"]', '.employer-name'
     ]).replace(/[\d.]+\s*$/, '').trim();
-    location = qText(document, [
+    location = qText(document,[
       '[data-test="emp-location"]', '[data-test="location"]',
       '[class*="location"]', '.location'
     ]);
@@ -485,7 +485,7 @@ function getDetailJob() {
   } else if (host.includes('usajobs.gov')) {
     title = qText(document,['h1.usajobs-joa-summary__title', 'h1.job-title', 'h1']);
     company = qText(document,['.usajobs-joa-summary__department-link', '.usajobs-joa-summary__department', '.agency-name']);
-    location = qText(document, ['.usajobs-joa-location__building', '.location-name', '.location']);
+    location = qText(document,['.usajobs-joa-location__building', '.location-name', '.location']);
     container = qFirst(document, ['h1.usajobs-joa-summary__title', 'h1'])?.parentElement;
     const duties = qText(document, ['#duties']);
     const reqs = qText(document, ['#requirements']);
@@ -702,16 +702,16 @@ function getListingJobs() {
   }
 
   if (host.includes('usajobs.gov')) {
-    const cards = document.querySelectorAll('.usajobs-search-result--core, .usajobs-search-result, .search-result-item');
+    const cards = document.querySelectorAll('.usajobs-search-result--core');
     cards.forEach(card => {
       if (card.querySelector('span[data-jtr-id]')) return;
-      const titleEl = qFirst(card,['.usajobs-search-result__title a', 'h3 a', 'a.job-title']);
+      const titleEl = qFirst(card,['a.usajobs-search-result--core__title', 'a.search-joa-link', 'h3 a', 'a.job-title']);
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
-      const company = qText(card, ['.usajobs-search-result__department', '.agency-name']);
-      const location = qText(card, ['.usajobs-search-result__location', '.location']);
+      const company = qText(card,['.usajobs-search-result--core__department', '.usajobs-search-result--core__agency', '.agency-name', 'h4']);
+      const location = qText(card,['.usajobs-search-result--core__location', '.location-name', '.location']);
       const jobUrl = titleEl?.href || '';
-      const snippet = qText(card,['.usajobs-search-result__details', '.summary']) || card.innerText?.trim() || '';
+      const snippet = qText(card,['.usajobs-search-result--core__details', '.usajobs-search-result--core__summary', '.summary']) || card.innerText?.trim() || '';
       const badgeContainer = titleEl?.parentElement || card;
       jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
@@ -725,7 +725,7 @@ function getListingJobs() {
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
       const company = qText(card, ['.job-item-agency', '.department', '.agency']);
-      const location = qText(card, ['.job-item-location', '.location']);
+      const location = qText(card,['.job-item-location', '.location']);
       const jobUrl = titleEl?.href || '';
       const snippet = qText(card,['.job-item-snippet', '.summary']) || card.innerText?.trim() || '';
       const badgeContainer = titleEl?.parentElement || card;
@@ -849,7 +849,7 @@ Tier rules:
     let parsed = JSON.parse(raw);
     function lcKeys(o) {
       if (Array.isArray(o)) return o.map(lcKeys);
-      if (o && typeof o === 'object') return Object.fromEntries(Object.entries(o).map(([k, v]) => [k.toLowerCase().trim(), lcKeys(v)]));
+      if (o && typeof o === 'object') return Object.fromEntries(Object.entries(o).map(([k, v]) =>[k.toLowerCase().trim(), lcKeys(v)]));
       return o;
     }
     parsed = lcKeys(parsed);
