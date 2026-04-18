@@ -80,7 +80,7 @@ async function loadCache() {
   try {
     const { gradeHistory } = await chrome.storage.local.get('gradeHistory');
     if (gradeHistory) {
-      for (const[k, v] of Object.entries(gradeHistory)) gradeCache.set(k, v);
+      for (const [k, v] of Object.entries(gradeHistory)) gradeCache.set(k, v);
     }
   } catch (e) {}
 }
@@ -99,7 +99,7 @@ chrome.storage.onChanged.addListener((changes) => {
 
 async function extractResumeKeywords(text) {
   if (!text) { resumeKeywords =[]; return; }
-  const techTerms = text.match(/\b([A-Z][a-zA-Z0-9+#.]+(?:\s[A-Z][a-zA-Z0-9+.]+)?|[A-Z]{2,})\b/g) || [];
+  const techTerms = text.match(/\b([A-Z][a-zA-Z0-9+#.]+(?:\s[A-Z][a-zA-Z0-9+.]+)?|[A-Z]{2,})\b/g) ||[];
   const cleaned =[...new Set(techTerms.map(t => t.trim()).filter(t => t.length > 2 && t.length < 40))];
   resumeKeywords = cleaned.slice(0, 60);
 }
@@ -128,7 +128,7 @@ function getJsonLdDescription() {
 }
 
 function extractGlassdoorPay() {
-  const paySelectors =[
+  const paySelectors = [
     '[data-test="detailSalary"]',
     '[data-test="salaryEstimate"]',
     '[class*="SalaryEstimate"]',
@@ -393,7 +393,7 @@ function getDetailJob() {
       'h2.jobTitle', 'h1'
     ]);
     title = titleEl?.innerText?.replace(/[-–]\s*job post/i, '')?.trim() || '';
-    company = qText(document, [
+    company = qText(document,[
       '[data-testid="inlineHeader-companyName"] a',
       '[data-testid="inlineHeader-companyName"]',
       '.jobsearch-JobInfoHeader-subtitle .companyName',
@@ -406,7 +406,7 @@ function getDetailJob() {
       '[data-testid="jobsearch-JobInfoHeader-companyLocation"]'
     ]);
     container = qFirst(document,['.jobsearch-JobInfoHeader-title-container']) || titleEl?.parentElement;
-    description = qText(document, [
+    description = qText(document,[
       '#jobDescriptionText',
       '[data-testid="jobsearch-JobComponent-description"]',
       '.jobsearch-jobDescriptionText'
@@ -420,7 +420,7 @@ function getDetailJob() {
       'h1[data-test]', '[class*="JobDetails_jobTitle"]',
       '[class*="jobTitle"]', '.JobDetails h1', 'h1'
     ]);
-    company = qText(document, [
+    company = qText(document,[
       'a[class*="EmployerProfile_profileContainer__"]',
       '[data-test="employer-name"]', '[data-test="employerName"]',
       '[class*="EmployerProfile_compactEmployerName"]',
@@ -458,7 +458,7 @@ function getDetailJob() {
     }
 
   } else if (host.includes('ziprecruiter.com')) {
-    const rightPane = qFirst(document, [
+    const rightPane = qFirst(document,[
       '[data-testid="right-pane"]', '.job_details_container',
       '.job-detail-panel', '[role="dialog"]', '[class*="JobDetail"]'
     ]);
@@ -475,7 +475,7 @@ function getDetailJob() {
       '[data-testid="job-details-scroll-container"]', '.job_description',
       '[data-testid="job-description"]', '.job-description-content', '.job-body'
     ]);
-    company = qText(scope, [
+    company = qText(scope,[
       '[data-testid="job-company"]', '.company-name',
       'a[data-testid="company-name"]', '[class*="company"]'
     ]);
@@ -488,10 +488,10 @@ function getDetailJob() {
     company = qText(document,['.usajobs-joa-summary__department-link', '.usajobs-joa-summary__department', '.agency-name']);
     location = qText(document,['.usajobs-joa-location__building', '.location-name', '.location']);
     container = qFirst(document,['h1.usajobs-joa-summary__title', 'h1'])?.parentElement;
-    const duties = qText(document, ['#duties']);
-    const reqs = qText(document,['#requirements']);
+    const duties = qText(document,['#duties']);
+    const reqs = qText(document, ['#requirements']);
     const quals = qText(document, ['#qualifications']);
-    description =[duties, reqs, quals].filter(Boolean).join('\n\n');
+    description = [duties, reqs, quals].filter(Boolean).join('\n\n');
     if (!description) description = qText(document,['.usajobs-joa-section', '.job-description']);
     if (!description) description = document.body.innerText?.trim() || '';
   } else if (host.includes('governmentjobs.com')) {
@@ -560,7 +560,7 @@ function getListingJobs() {
       const snippet = card.innerText?.trim() || '';
 
       const badgeContainer = titleEl?.closest('h3,h2,div[class*="title"]') || titleEl?.parentElement || card;
-      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+      jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
 
@@ -589,9 +589,9 @@ function getListingJobs() {
       ]);
       const linkEl = qFirst(card, ['a[href*="/viewjob"]', 'a[href*="/rc/clk"]', 'h2.jobTitle a']);
       const jobUrl = linkEl?.href || '';
-      const snippet = qText(card,['.job-snippet', '.underShelfFooter', '.metadata']) || card.innerText?.slice(0, 200) || '';
+      const snippet = qText(card,['.job-snippet', '.underShelfFooter', '.metadata']) || card.innerText?.trim() || '';
       const badgeContainer = titleEl?.closest('h2') || titleEl?.parentElement || card;
-      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+      jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
 
@@ -630,7 +630,7 @@ function getListingJobs() {
         '[data-test="emp-location"]', '[data-test="location"]',
         '[class*="location"]', '.location'
       ]);
-      const linkEl = qFirst(card,[
+      const linkEl = qFirst(card, [
         'a[data-test="job-link"]',
         'a[href*="/job-listing/"]',
         'a[href*="/partner/jobListing"]',
@@ -640,9 +640,9 @@ function getListingJobs() {
       const salary = qText(card, [
         '[data-test="detailSalary"]', '.salary-estimate', '[class*="salary"]', '[class*="Salary"]'
       ]);
-      const snippet = (salary ? salary + ' ' : '') + (card.innerText?.slice(0, 300) || '');
+      const snippet = (salary ? salary + ' ' : '') + (card.innerText?.trim() || '');
       const badgeContainer = titleEl?.parentElement || card;
-      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+      jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
 
     if (jobs.length === 0) {
@@ -653,7 +653,7 @@ function getListingJobs() {
         if (!card || card.querySelector('span[data-jtr-id]')) return;
         const company = qText(card, ['[class*="employer"]', '[data-test="employer-name"]']).replace(/[\d.]+\s*$/, '').trim();
         const location = qText(card, ['[class*="location"]', '[data-test="emp-location"]']);
-        jobs.push({ title, description: card.innerText?.slice(0, 300) || '', container: a.parentElement || card, isListing: true, company, location, url: a.href });
+        jobs.push({ title, description: card.innerText?.slice(0, 1200) || '', container: a.parentElement || card, isListing: true, company, location, url: a.href });
       });
     }
   }
@@ -683,12 +683,12 @@ function getListingJobs() {
         const linkEl = qFirst(card,['a[href*="/jobs/"]', 'a[href*="/job/"]', 'a[href*="/c/"]']);
         const jobUrl = linkEl?.href || '';
         const badgeContainer = titleEl?.parentElement || card;
-        jobs.push({ title, description: card.innerText?.slice(0, 300) || '', container: badgeContainer, isListing: true, company, location, url: jobUrl });
+        jobs.push({ title, description: card.innerText?.slice(0, 1200) || '', container: badgeContainer, isListing: true, company, location, url: jobUrl });
       });
     }
 
     if (jobs.length === 0) {
-      document.querySelectorAll('h2,[data-testid="job-title"], .job-title').forEach(titleEl => {
+      document.querySelectorAll('h2, [data-testid="job-title"], .job-title').forEach(titleEl => {
         const title = titleEl.innerText?.trim();
         if (!title || title.length < 4 || title.match(/seekers|businesses/i)) return;
         if (titleEl.closest('[data-testid="right-pane"],[role="dialog"]')) return;
@@ -697,16 +697,16 @@ function getListingJobs() {
         const company = qText(card || document, ['[data-testid="job-company"]', '.company-name']);
         const location = qText(card || document, ['[data-testid="job-location"]', '.job-location']);
         const linkEl = (card || document).querySelector('a[href*="/jobs/"],a[href*="/job/"]');
-        jobs.push({ title, description: card?.innerText?.slice(0, 300) || '', container: titleEl.parentElement, isListing: true, company, location, url: linkEl?.href || '' });
+        jobs.push({ title, description: card?.innerText?.slice(0, 1200) || '', container: titleEl.parentElement, isListing: true, company, location, url: linkEl?.href || '' });
       });
     }
   }
 
   if (host.includes('usajobs.gov')) {
-    const cards = document.querySelectorAll('.usajobs-search-result--core, .usajobs-search-result, .search-result-item');
+    const cards = document.querySelectorAll('.usajobs-search-result--core, .usajobs-search-result, .search-result-item, #search-results > div');
     cards.forEach(card => {
       if (card.querySelector('span[data-jtr-id]')) return;
-      const titleEl = qFirst(card,['a.usajobs-search-result--core__title', 'a.search-joa-link', 'h3 a', 'a.job-title', 'a.job-title-link', 'a[href*="/job/"]']);
+      const titleEl = qFirst(card,['a.usajobs-search-result--core__title', 'a.search-joa-link', 'h3 a', 'h2 a', 'a.job-title', 'a.job-title-link', 'a[href*="/job/"]']);
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
       const company = qText(card,['.usajobs-search-result--core__department', '.usajobs-search-result--core__agency', '.agency-name', 'h4', '.department']);
@@ -714,18 +714,18 @@ function getListingJobs() {
       const jobUrl = titleEl?.href || '';
       const snippet = qText(card,['.usajobs-search-result--core__details', '.usajobs-search-result--core__summary', '.summary', '.salary']) || card.innerText?.trim() || '';
       const badgeContainer = titleEl?.parentElement || card;
-      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+      jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
 
     if (jobs.length === 0) {
       document.querySelectorAll('a.job-title-link, a[href*="/job/"]').forEach(a => {
         const title = a.innerText?.trim();
         if (!title || title.length < 3 || a.closest('nav,header,.filters')) return;
-        const card = a.closest('[class*="result"], li') || a.parentElement?.parentElement;
+        const card = a.closest('[class*="result"], li, #search-results > div') || a.parentElement?.parentElement;
         if (!card || card.querySelector('span[data-jtr-id]')) return;
-        const company = qText(card, ['.agency-name', 'h4', '.department']);
-        const location = qText(card, ['.location-name', '.location']);
-        jobs.push({ title, description: card.innerText?.slice(0, 300) || '', container: a.parentElement || card, isListing: true, company, location, url: a.href });
+        const company = qText(card,['.agency-name', 'h4', '.department']);
+        const location = qText(card,['.location-name', '.location']);
+        jobs.push({ title, description: card.innerText?.slice(0, 1200) || '', container: a.parentElement || card, isListing: true, company, location, url: a.href });
       });
     }
   }
@@ -737,12 +737,12 @@ function getListingJobs() {
       const titleEl = qFirst(card,['.job-item-title a', 'h3 a', 'a[href*="/jobs/"]']);
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
-      const company = qText(card,['.job-item-agency', '.department', '.agency']);
+      const company = qText(card, ['.job-item-agency', '.department', '.agency']);
       const location = qText(card,['.job-item-location', '.location']);
       const jobUrl = titleEl?.href || '';
       const snippet = qText(card,['.job-item-snippet', '.summary']) || card.innerText?.trim() || '';
       const badgeContainer = titleEl?.parentElement || card;
-      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+      jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
 
@@ -808,7 +808,7 @@ ${resumeText || 'Not provided — estimate fit based on general job appeal.'}
 Output a JSON object:
 {
   "results":[
-    { "job_index": 0, "tier": "S", "fit_score": "85%", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags": ["string"], "missing_skills":["string"] }
+    { "job_index": 0, "tier": "S", "fit_score": "85%", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags":["string"], "missing_skills":["string"] }
   ]
 }
 
