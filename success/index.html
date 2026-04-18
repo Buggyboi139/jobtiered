@@ -12,6 +12,7 @@
     margin: 0;
     padding: 20px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
@@ -68,21 +69,36 @@
     font-size: 14px;
     margin: 0;
   }
+  .footer {
+    margin-top: 32px;
+    font-size: 14px;
+  }
+  .footer a {
+    color: #71717a;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer a:hover {
+    color: #a1a1aa;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="icon">🎉</div>
   <h1>Payment Successful!</h1>
-  <p>Thank you for upgrading to Job Tier Rater Pro. Your account has been successfully updated.</p>
+  <p>Thank you for upgrading to JobTiered. Your account has been successfully updated.</p>
   <div class="instruction">
-    Please return to the Job Tier Rater Pro extension settings and click the <strong>↻ Refresh License Status</strong> button to activate your features.
+    Please return to the JobTiered extension settings and click the <strong>↻ Refresh License Status</strong> button to activate your features.
   </div>
   <div class="disclaimer">
     <h2>⚠️ IMPORTANT DISCLAIMER</h2>
     <p>If you purchased the BYOK (Bring Your Own Key) plan, please be reminded that it DOES NOT include API access or credits. You are required to provide your own active API key from OpenRouter. Refunds will not be granted for misunderstandings regarding this policy.</p>
   </div>
   <p style="font-size: 14px; margin-bottom: 0;">You can now safely close this tab.</p>
+</div>
+<div class="footer">
+  <a href="mailto:dsmason321@gmail.com">Contact the developer</a>
 </div>
 </body>
 </html>
