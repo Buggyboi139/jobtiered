@@ -887,10 +887,10 @@ Tier rules:
       const dimmingTarget = job.isListing ? job.container : getDescriptionBody();
       applyDimming(dimmingTarget, mode, tierVal);
 
-      if (type === 'detail' && (tierVal === 's' || tierVal === 'a')) {
-        const dedupKey = (job.url || '') + '|' + job.title;
-        if (!currentSaved.some(s => ((s.url || '') + '|' + s.title) === dedupKey)) {
-          currentSaved.push({
+      if (type === 'detail' && (tierVal === 's' || tierVal === 'a' || tierVal === 'b')) {
+        const dedupKey = ((job.url || '') + '|' + job.title).toLowerCase();
+        if (!currentSaved.some(s => ((s.url || '') + '|' + s.title).toLowerCase() === dedupKey)) {
+          const jobData = {
             title: job.title.substring(0, 80),
             company: job.company || '',
             location: job.location || '',
@@ -899,21 +899,27 @@ Tier rules:
             pay: result.estimated_pay || result.pay || 'Listed',
             marketRange: result.market_range || '',
             fit: result.fit_score || '',
-            date: new Date().toISOString().split('T')[0],
             description: (job.description || '').substring(0, SAVED_DESC_LIMIT),
-            applied: false,
-            stage: 'saved',
             reasoning: result.reasoning || '',
             pros: result.pros || [],
             flags: result.red_flags || result.flags || []
+          };
+          currentSaved.push({
+            ...jobData,
+            date: new Date().toISOString().split('T')[0],
+            applied: false,
+            stage: 'saved'
           });
           changed = true;
+          try {
+            chrome.runtime.sendMessage({ action: 'saveJob', job: jobData });
+          } catch (_) {}
         }
       }
     });
 
     if (changed) {
-      while (currentSaved.length > 100) currentSaved.shift();
+      while (currentSaved.length > 200) currentSaved.shift();
       chrome.storage.local.set({ savedJobs: currentSaved });
     }
 

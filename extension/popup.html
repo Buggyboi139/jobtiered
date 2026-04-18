@@ -278,18 +278,23 @@
 
     .empty-state { text-align: center; color: var(--text-dim); padding: 20px 0; font-size: 12px; }
 
-    #coverLetterPanel, #tweakResumePanel { display: none; margin-top: 10px; }
-    #coverLetterPanel .panel-title, #tweakResumePanel .panel-title {
+    .gen-panel { display: none; margin-top: 10px; }
+    .gen-panel .panel-title {
       font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px;
     }
-    #coverLetterPanel textarea, #tweakResumePanel textarea {
+    .gen-panel textarea {
       width: 100%; height: 180px; background: rgba(0,0,0,0.3);
       border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
       color: var(--text); font-size: 11px; font-family: system-ui, sans-serif;
       padding: 10px; resize: vertical; line-height: 1.5;
     }
-    #coverLetterPanel textarea:focus, #tweakResumePanel textarea:focus { outline: none; border-color: rgba(74,158,255,0.4); }
-    #coverLetterPanel .panel-actions, #tweakResumePanel .panel-actions { display: flex; gap: 5px; margin-top: 6px; }
+    .gen-panel textarea:focus { outline: none; border-color: rgba(74,158,255,0.4); }
+    .gen-panel .panel-actions { display: flex; gap: 5px; margin-top: 6px; }
+
+    .sync-status {
+      font-size: 10px; color: var(--text-dim); text-align: center;
+      padding: 4px 0; transition: opacity 0.3s;
+    }
 
     .upgrade-cta {
       display: block; width: 100%; padding: 10px 14px; margin-top: 10px;
@@ -392,9 +397,10 @@
 
   <div class="saved-section">
     <div class="saved-header">
-      <span class="saved-title">Saved S &amp; A Jobs</span>
+      <span class="saved-title">Saved Jobs</span>
       <span class="saved-count" id="savedCountLabel"></span>
     </div>
+    <div class="sync-status" id="syncStatus"></div>
 
     <div class="filter-tabs">
       <button class="filter-tab active" id="filterAll">All</button>
@@ -417,7 +423,7 @@
 
     <div id="savedJobsList"></div>
 
-    <div id="coverLetterPanel">
+    <div id="coverLetterPanel" class="gen-panel">
       <div class="panel-title" id="coverLetterTitle">Cover Letter</div>
       <textarea id="coverLetterText" readonly></textarea>
       <div class="panel-actions">
@@ -426,12 +432,21 @@
       </div>
     </div>
 
-    <div id="tweakResumePanel">
+    <div id="tweakResumePanel" class="gen-panel">
       <div class="panel-title" id="tweakResumeTitle">Tweak Resume</div>
       <textarea id="tweakResumeText" readonly></textarea>
       <div class="panel-actions">
         <button class="act-btn" id="copyTweakResume">Copy</button>
         <button class="act-btn" id="closeTweakResume">Close</button>
+      </div>
+    </div>
+
+    <div id="interviewPanel" class="gen-panel">
+      <div class="panel-title" id="interviewTitle">Interview Questions</div>
+      <textarea id="interviewText" readonly></textarea>
+      <div class="panel-actions">
+        <button class="act-btn" id="copyInterview">Copy</button>
+        <button class="act-btn" id="closeInterview">Close</button>
       </div>
     </div>
   </div>

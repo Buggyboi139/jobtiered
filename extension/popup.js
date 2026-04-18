@@ -1,6 +1,7 @@
 let currentFilter = 'all';
 let pipelineFilter = '';
 let allSavedJobs = [];
+let supabaseReady = false;
 
 const STAGES = ['saved', 'applied', 'offer', 'rejected'];
 
@@ -21,7 +22,7 @@ function isPaidStatus(status) {
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'apiTokens', 'savedJobs', 'gradeHistory', 'evalMode', 'keywordHighlight',
-    'freemiumRemaining'
+    'freemiumRemaining', 'session'
   ]);
 
   if (data.apiTokens) document.getElementById('apiTokens').textContent = fmtNum(data.apiTokens);
@@ -40,7 +41,61 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateLicensePill(status);
   updateCtaButton(status);
   updateFreemiumDisplay(status, data.freemiumRemaining);
+
+  if (data.session?.access_token) {
+    fetchSavedJobsFromSupabase();
+  }
 });
+
+async function fetchSavedJobsFromSupabase() {
+  setSyncStatus('Syncing\u2026');
+  try {
+    const resp = await chrome.runtime.sendMessage({ action: 'getSavedJobs' });
+    if (resp.error) {
+      setSyncStatus('Sync failed — using local data');
+      return;
+    }
+    if (resp.jobs) {
+      allSavedJobs = resp.jobs.map(mapSupabaseJob);
+      await chrome.storage.local.set({ savedJobs: allSavedJobs });
+      document.getElementById('savedCount').textContent = allSavedJobs.length;
+      supabaseReady = true;
+      renderSavedJobs();
+      setSyncStatus('');
+    }
+  } catch (_) {
+    setSyncStatus('Offline — using local data');
+  }
+}
+
+function mapSupabaseJob(row) {
+  return {
+    id: row.id,
+    title: row.title || '',
+    company: row.company || '',
+    location: row.location || '',
+    url: row.url || '',
+    tier: row.tier || '',
+    pay: row.pay || '',
+    marketRange: row.market_range || '',
+    fit: row.fit || '',
+    date: row.created_at ? row.created_at.split('T')[0] : '',
+    description: row.description || '',
+    applied: !!row.applied,
+    stage: row.stage || 'saved',
+    reasoning: row.reasoning || '',
+    pros: row.pros || [],
+    flags: row.flags || [],
+    cover_letter: row.cover_letter || '',
+    tweaked_resume: row.tweaked_resume || '',
+    interview_questions: row.interview_questions || ''
+  };
+}
+
+function setSyncStatus(text) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = text;
+}
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.licenseStatus) {
@@ -138,11 +193,16 @@ document.getElementById('clearCache').addEventListener('click', async () => {
 
 document.getElementById('clearSaved').addEventListener('click', async () => {
   if (!confirm('Clear all saved jobs? This cannot be undone.')) return;
+  for (const job of allSavedJobs) {
+    if (job.id) {
+      try { await chrome.runtime.sendMessage({ action: 'deleteJob', jobId: job.id }); } catch (_) {}
+    }
+  }
   await chrome.storage.local.remove(['savedJobs']);
   allSavedJobs = [];
   document.getElementById('savedCount').textContent = '0';
   renderSavedJobs();
-  hideCoverLetter();
+  hideAllPanels();
 });
 
 document.getElementById('filterAll').addEventListener('click', () => setFilter('all'));
@@ -164,10 +224,9 @@ function setFilter(f) {
 }
 
 document.getElementById('exportCsv').addEventListener('click', async () => {
-  const { savedJobs } = await chrome.storage.local.get('savedJobs');
-  if (!savedJobs?.length) return;
+  if (!allSavedJobs?.length) return;
   const rows = [['Title', 'Company', 'Location', 'Tier', 'Fit', 'Pay', 'Market Range', 'Stage', 'URL', 'Date', 'Applied']];
-  savedJobs.forEach(j => rows.push([
+  allSavedJobs.forEach(j => rows.push([
     j.title || '', j.company || '', j.location || '', j.tier || '', j.fit || '',
     j.pay || '', j.marketRange || '', j.stage || 'saved', j.url || '', j.date || '',
     j.applied ? 'Yes' : 'No'
@@ -177,9 +236,8 @@ document.getElementById('exportCsv').addEventListener('click', async () => {
 });
 
 document.getElementById('exportJson').addEventListener('click', async () => {
-  const { savedJobs } = await chrome.storage.local.get('savedJobs');
-  if (!savedJobs?.length) return;
-  downloadBlob(JSON.stringify(savedJobs, null, 2), `jobs_${today()}.json`, 'application/json');
+  if (!allSavedJobs?.length) return;
+  downloadBlob(JSON.stringify(allSavedJobs, null, 2), `jobs_${today()}.json`, 'application/json');
 });
 
 function downloadBlob(content, filename, mime) {
@@ -193,88 +251,158 @@ function downloadBlob(content, filename, mime) {
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
-document.getElementById('copyCoverLetter').addEventListener('click', () => {
-  const ta = document.getElementById('coverLetterText');
+document.getElementById('copyCoverLetter').addEventListener('click', () => copyPanel('coverLetterText', 'copyCoverLetter'));
+document.getElementById('closeCoverLetter').addEventListener('click', () => hidePanel('coverLetterPanel'));
+document.getElementById('copyTweakResume').addEventListener('click', () => copyPanel('tweakResumeText', 'copyTweakResume'));
+document.getElementById('closeTweakResume').addEventListener('click', () => hidePanel('tweakResumePanel'));
+document.getElementById('copyInterview').addEventListener('click', () => copyPanel('interviewText', 'copyInterview'));
+document.getElementById('closeInterview').addEventListener('click', () => hidePanel('interviewPanel'));
+
+function copyPanel(textareaId, btnId) {
+  const ta = document.getElementById(textareaId);
   navigator.clipboard.writeText(ta.value).then(() => {
-    const btn = document.getElementById('copyCoverLetter');
+    const btn = document.getElementById(btnId);
     const prev = btn.textContent; btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = prev, 1500);
   });
-});
+}
 
-document.getElementById('closeCoverLetter').addEventListener('click', hideCoverLetter);
+function hidePanel(id) { document.getElementById(id).style.display = 'none'; }
+function hideAllPanels() {
+  hidePanel('coverLetterPanel');
+  hidePanel('tweakResumePanel');
+  hidePanel('interviewPanel');
+}
 
-document.getElementById('copyTweakResume').addEventListener('click', () => {
-  const ta = document.getElementById('tweakResumeText');
-  navigator.clipboard.writeText(ta.value).then(() => {
-    const btn = document.getElementById('copyTweakResume');
-    const prev = btn.textContent; btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = prev, 1500);
-  });
-});
-
-document.getElementById('closeTweakResume').addEventListener('click', hideTweakResume);
-
-function hideCoverLetter() { document.getElementById('coverLetterPanel').style.display = 'none'; }
-function hideTweakResume() { document.getElementById('tweakResumePanel').style.display = 'none'; }
-
-function showTweakResume(title, text) {
-  document.getElementById('tweakResumeTitle').textContent = `Tweak Resume — ${title}`;
-  document.getElementById('tweakResumeText').value = text;
-  document.getElementById('tweakResumePanel').style.display = 'block';
-  document.getElementById('tweakResumePanel').scrollIntoView({ behavior: 'smooth' });
+function showPanel(panelId, titleId, textId, title, text) {
+  document.getElementById(titleId).textContent = title;
+  document.getElementById(textId).value = text;
+  document.getElementById(panelId).style.display = 'block';
+  document.getElementById(panelId).scrollIntoView({ behavior: 'smooth' });
 }
 
 async function setStage(index, stage) {
-  allSavedJobs[index].stage = stage;
-  allSavedJobs[index].applied = (stage !== 'saved');
+  const job = allSavedJobs[index];
+  job.stage = stage;
+  job.applied = (stage !== 'saved');
   await chrome.storage.local.set({ savedJobs: allSavedJobs });
   renderSavedJobs();
+
+  if (job.id) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'updateJob',
+        jobId: job.id,
+        updates: { stage, applied: job.applied }
+      });
+    } catch (_) {}
+  }
 }
 
 async function removeJob(index) {
+  const job = allSavedJobs[index];
   allSavedJobs.splice(index, 1);
   await chrome.storage.local.set({ savedJobs: allSavedJobs });
   document.getElementById('savedCount').textContent = allSavedJobs.length;
   renderSavedJobs();
+
+  if (job.id) {
+    try {
+      await chrome.runtime.sendMessage({ action: 'deleteJob', jobId: job.id });
+    } catch (_) {}
+  }
 }
 
 async function generateCoverLetter(index) {
   const job = allSavedJobs[index];
   if (!job) return;
+
+  if (job.cover_letter) {
+    showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+      `Cover Letter \u2014 ${job.title}`, job.cover_letter);
+    return;
+  }
+
   const { openRouterKey, resumeText, licenseStatus } = await chrome.storage.local.get([
     'openRouterKey', 'resumeText', 'licenseStatus'
   ]);
   const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
-  if (!canUse) { showCoverLetter(job.title, 'Error: Upgrade to Pro to generate cover letters.'); return; }
-  if (!job.description) { showCoverLetter(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
+  if (!canUse) {
+    showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+      `Cover Letter \u2014 ${job.title}`, 'Error: Upgrade to Pro to generate cover letters.');
+    return;
+  }
+  if (!job.description) {
+    showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+      `Cover Letter \u2014 ${job.title}`, 'Error: No description saved. View the job again to refresh.');
+    return;
+  }
 
-  showCoverLetter(job.title, 'Generating cover letter…');
+  showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+    `Cover Letter \u2014 ${job.title}`, 'Generating cover letter\u2026');
 
   const sys = `You are an expert career coach. Write a compelling, concise cover letter.
 Guidelines: 3-4 paragraphs, under 350 words. Open with genuine interest. Use specifics from both resume and job description. Mention company by name. Close with a clear call to action. Do not fabricate experience. Output ONLY the cover letter text.`;
 
-  const usr = `Job: ${job.title} at ${job.company || 'Unknown'} — ${job.location || ''}
+  const usr = `Job: ${job.title} at ${job.company || 'Unknown'} \u2014 ${job.location || ''}
 Description: ${job.description}
-Resume: ${resumeText || 'Not provided — write a general cover letter.'}`;
+Resume: ${resumeText || 'Not provided \u2014 write a general cover letter.'}`;
 
   const resp = await callAPI(sys, usr, 0.5);
-  if (resp.error) { showCoverLetter(job.title, `Error: ${resp.error}`); return; }
-  showCoverLetter(job.title, resp.text);
+  if (resp.error) {
+    showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+      `Cover Letter \u2014 ${job.title}`, `Error: ${resp.error}`);
+    return;
+  }
+
+  job.cover_letter = resp.text;
+  await chrome.storage.local.set({ savedJobs: allSavedJobs });
+  showPanel('coverLetterPanel', 'coverLetterTitle', 'coverLetterText',
+    `Cover Letter \u2014 ${job.title}`, resp.text);
+
+  if (job.id) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'updateJob',
+        jobId: job.id,
+        updates: { cover_letter: resp.text }
+      });
+    } catch (_) {}
+  }
 }
 
 async function generateTweakedResume(index) {
   const job = allSavedJobs[index];
   if (!job) return;
+
+  if (job.tweaked_resume) {
+    showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+      `Tweak Resume \u2014 ${job.title}`, job.tweaked_resume);
+    return;
+  }
+
   const { openRouterKey, resumeText, licenseStatus } = await chrome.storage.local.get([
     'openRouterKey', 'resumeText', 'licenseStatus'
   ]);
   const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
-  if (!canUse) { showTweakResume(job.title, 'Error: Upgrade to Pro to tailor resumes.'); return; }
-  if (!resumeText) { showTweakResume(job.title, 'Error: No resume found. Paste your resume in Account Management.'); return; }
-  if (!job.description) { showTweakResume(job.title, 'Error: No description saved. View the job again to refresh.'); return; }
+  if (!canUse) {
+    showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+      `Tweak Resume \u2014 ${job.title}`, 'Error: Upgrade to Pro to tailor resumes.');
+    return;
+  }
+  if (!resumeText) {
+    showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+      `Tweak Resume \u2014 ${job.title}`, 'Error: No resume found. Paste your resume in Account Management.');
+    return;
+  }
+  if (!job.description) {
+    showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+      `Tweak Resume \u2014 ${job.title}`, 'Error: No description saved. View the job again to refresh.');
+    return;
+  }
 
-  showTweakResume(job.title, 'Generating tailored resume\u2026');
+  showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+    `Tweak Resume \u2014 ${job.title}`, 'Generating tailored resume\u2026');
 
   const sys = `You are an expert resume writer and career coach. You will receive a user's original resume and a job description. Your task is to rewrite the resume so it is better tailored to the specific job.
 
@@ -302,8 +430,101 @@ Original Resume:
 ${resumeText}`;
 
   const resp = await callAPI(sys, usr, 0.4);
-  if (resp.error) { showTweakResume(job.title, `Error: ${resp.error}`); return; }
-  showTweakResume(job.title, resp.text);
+  if (resp.error) {
+    showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+      `Tweak Resume \u2014 ${job.title}`, `Error: ${resp.error}`);
+    return;
+  }
+
+  job.tweaked_resume = resp.text;
+  await chrome.storage.local.set({ savedJobs: allSavedJobs });
+  showPanel('tweakResumePanel', 'tweakResumeTitle', 'tweakResumeText',
+    `Tweak Resume \u2014 ${job.title}`, resp.text);
+
+  if (job.id) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'updateJob',
+        jobId: job.id,
+        updates: { tweaked_resume: resp.text }
+      });
+    } catch (_) {}
+  }
+}
+
+async function generateInterviewQuestions(index) {
+  const job = allSavedJobs[index];
+  if (!job) return;
+
+  if (job.interview_questions) {
+    showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+      `Interview Prep \u2014 ${job.title}`, job.interview_questions);
+    return;
+  }
+
+  const { openRouterKey, resumeText, licenseStatus } = await chrome.storage.local.get([
+    'openRouterKey', 'resumeText', 'licenseStatus'
+  ]);
+  const canUse = licenseStatus === 'byok' ? !!openRouterKey : (licenseStatus === 'valid' || licenseStatus === 'offline');
+  if (!canUse) {
+    showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+      `Interview Prep \u2014 ${job.title}`, 'Error: Upgrade to Pro to generate interview questions.');
+    return;
+  }
+  if (!job.description) {
+    showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+      `Interview Prep \u2014 ${job.title}`, 'Error: No description saved. View the job again to refresh.');
+    return;
+  }
+
+  showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+    `Interview Prep \u2014 ${job.title}`, 'Generating interview questions\u2026');
+
+  const sys = `You are an expert interview coach and technical recruiter. Generate a tailored set of interview questions for the candidate based on the job description and their resume.
+
+Guidelines:
+- Generate 12-15 questions total.
+- Organize into sections: BEHAVIORAL (4-5), TECHNICAL/ROLE-SPECIFIC (4-5), and SITUATIONAL (3-4).
+- Questions should be specific to this role, company, and the candidate's background.
+- Include 1-2 questions the candidate should ask the interviewer at the end.
+- For each question, add a brief hint in parentheses about what the interviewer is looking for.
+- Format clearly with section headers and numbered questions.
+- Output ONLY the questions, no preamble.`;
+
+  const usr = `Job Title: ${job.title}
+Company: ${job.company || 'Unknown'}
+Location: ${job.location || 'Not listed'}
+Tier Grade: ${job.tier || 'N/A'}
+
+Job Description:
+${job.description}
+
+---
+
+Candidate Resume:
+${resumeText || 'Not provided \u2014 generate general questions based on the job description.'}`;
+
+  const resp = await callAPI(sys, usr, 0.4);
+  if (resp.error) {
+    showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+      `Interview Prep \u2014 ${job.title}`, `Error: ${resp.error}`);
+    return;
+  }
+
+  job.interview_questions = resp.text;
+  await chrome.storage.local.set({ savedJobs: allSavedJobs });
+  showPanel('interviewPanel', 'interviewTitle', 'interviewText',
+    `Interview Prep \u2014 ${job.title}`, resp.text);
+
+  if (job.id) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'updateJob',
+        jobId: job.id,
+        updates: { interview_questions: resp.text }
+      });
+    } catch (_) {}
+  }
 }
 
 async function callAPI(systemContent, userContent, temperature) {
@@ -339,13 +560,6 @@ async function callAPI(systemContent, userContent, temperature) {
   }
 }
 
-function showCoverLetter(title, text) {
-  document.getElementById('coverLetterTitle').textContent = `Cover Letter — ${title}`;
-  document.getElementById('coverLetterText').value = text;
-  document.getElementById('coverLetterPanel').style.display = 'block';
-  document.getElementById('coverLetterPanel').scrollIntoView({ behavior: 'smooth' });
-}
-
 function renderSavedJobs() {
   const container = document.getElementById('savedJobsList');
   container.innerHTML = '';
@@ -357,7 +571,7 @@ function renderSavedJobs() {
   if (pipelineFilter) jobs = jobs.filter(j => (j.stage || 'saved') === pipelineFilter);
 
   if (jobs.length === 0) {
-    container.innerHTML = `<div class="empty-state">No jobs here yet.<br><span style="font-size:10px;">Grade S or A tier jobs to save them.</span></div>`;
+    container.innerHTML = `<div class="empty-state">No jobs here yet.<br><span style="font-size:10px;">Grade S, A, or B tier jobs to save them.</span></div>`;
     return;
   }
 
@@ -397,7 +611,7 @@ function renderSavedJobs() {
     if (job.company || job.location) {
       const meta = document.createElement('div');
       meta.className = 'job-meta';
-      meta.textContent = [job.company, job.location].filter(Boolean).join(' — ');
+      meta.textContent = [job.company, job.location].filter(Boolean).join(' \u2014 ');
       div.appendChild(meta);
     }
 
@@ -409,7 +623,7 @@ function renderSavedJobs() {
       if (job.marketRange) parts.push('Mkt: ' + job.marketRange);
       if (job.fit && job.fit !== 'N/A') parts.push(job.fit);
       if (job.date) parts.push(job.date);
-      pay.textContent = parts.join(' · ');
+      pay.textContent = parts.join(' \u00b7 ');
       div.appendChild(pay);
     }
 
@@ -429,15 +643,21 @@ function renderSavedJobs() {
 
     const coverBtn = document.createElement('button');
     coverBtn.className = 'job-act-btn primary';
-    coverBtn.textContent = 'Cover Letter';
+    coverBtn.textContent = job.cover_letter ? '\u2709 Letter' : 'Cover Letter';
     coverBtn.addEventListener('click', () => generateCoverLetter(realIndex));
     actions.appendChild(coverBtn);
 
     const tweakBtn = document.createElement('button');
     tweakBtn.className = 'job-act-btn primary';
-    tweakBtn.textContent = 'Tweak Resume';
+    tweakBtn.textContent = job.tweaked_resume ? '\u2709 Resume' : 'Tweak Resume';
     tweakBtn.addEventListener('click', () => generateTweakedResume(realIndex));
     actions.appendChild(tweakBtn);
+
+    const interviewBtn = document.createElement('button');
+    interviewBtn.className = 'job-act-btn success';
+    interviewBtn.textContent = job.interview_questions ? '\u2709 Interview' : 'Interview Q\u2019s';
+    interviewBtn.addEventListener('click', () => generateInterviewQuestions(realIndex));
+    actions.appendChild(interviewBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'job-act-btn danger-sm';

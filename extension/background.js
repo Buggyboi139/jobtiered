@@ -119,6 +119,27 @@ async function fetchAndCacheFreemiumStatus(session) {
   } catch (_) {}
 }
 
+async function edgeFunctionCall(action, payload = {}) {
+  const { session } = await chrome.storage.local.get("session");
+  if (!session?.access_token) return { error: "Not logged in." };
+
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ action, ...payload })
+  });
+
+  const text = await resp.text();
+  let data;
+  try { data = JSON.parse(text); } catch { return { error: "Server returned invalid response." }; }
+  if (!resp.ok || data.error) return { error: data.error || `Server Error ${resp.status}` };
+  return data;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "fetchOpenRouter") {
     handleOpenRouterFetch(request).then(sendResponse).catch(err => sendResponse({ error: err.message }));
@@ -144,6 +165,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === "deleteAccount") {
     handleDeleteAccount().then(sendResponse).catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (request.action === "saveJob") {
+    edgeFunctionCall('save-job', { job: request.job })
+      .then(sendResponse)
+      .catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (request.action === "getSavedJobs") {
+    edgeFunctionCall('get-saved-jobs')
+      .then(sendResponse)
+      .catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (request.action === "updateJob") {
+    edgeFunctionCall('update-job', { jobId: request.jobId, updates: request.updates })
+      .then(sendResponse)
+      .catch(err => sendResponse({ error: err.message }));
+    return true;
+  }
+
+  if (request.action === "deleteJob") {
+    edgeFunctionCall('delete-job', { jobId: request.jobId })
+      .then(sendResponse)
+      .catch(err => sendResponse({ error: err.message }));
     return true;
   }
 });
