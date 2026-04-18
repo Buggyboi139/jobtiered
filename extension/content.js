@@ -9,7 +9,6 @@ const BATCH_DELAY = 500;
 const DESC_LIMIT = 3500;
 const POLL_INTERVAL = 4000;
 const SAVED_DESC_LIMIT = 2000;
-
 let globalTooltip = null;
 let keywordHighlightActive = false;
 let resumeKeywords = [];
@@ -28,18 +27,7 @@ function initTooltip() {
   }
   globalTooltip = document.createElement('div');
   globalTooltip.id = 'jtr-global-tooltip';
-  globalTooltip.style.cssText = `
-    visibility:hidden; width:360px;
-    background:rgba(15,15,20,0.97);
-    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-    color:#e8e8f0; text-align:left;
-    border-radius:12px; padding:14px 16px;
-    position:fixed; z-index:2147483647;
-    opacity:0; transition:opacity 0.18s ease;
-    font-size:13px; font-family:system-ui,sans-serif;
-    box-shadow:0 12px 40px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.1);
-    pointer-events:none; line-height:1.5;
-  `;
+  globalTooltip.style.cssText = `visibility:hidden; width:360px; background:rgba(15,15,20,0.97); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); color:#e8e8f0; text-align:left; border-radius:12px; padding:14px 16px; position:fixed; z-index:2147483647; opacity:0; transition:opacity 0.18s ease; font-size:13px; font-family:system-ui,sans-serif; box-shadow:0 12px 40px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.1); pointer-events:none; line-height:1.5;`;
   document.body.appendChild(globalTooltip);
 }
 
@@ -82,18 +70,14 @@ async function loadCache() {
     if (gradeHistory) {
       for (const [k, v] of Object.entries(gradeHistory)) gradeCache.set(k, v);
     }
-  } catch (e) {
-    console.warn('[JTR] Cache load failed:', e.message);
-  }
+  } catch (e) {}
 }
 
 async function persistCache() {
   try {
     const obj = Object.fromEntries([...gradeCache].slice(-400));
     await chrome.storage.local.set({ gradeHistory: obj });
-  } catch (e) {
-    console.warn('[JTR] Cache persist failed:', e.message);
-  }
+  } catch (e) {}
 }
 
 chrome.storage.onChanged.addListener((changes) => {
@@ -139,13 +123,12 @@ function extractGlassdoorPay() {
     '[class*="salary-estimate"]',
     '[class*="SalaryRange"]',
     '[class*="CompensationModule"]',
-    '[class*="EmpBasicInfo"] [class*="salary"]',
+    '[class*="EmpBasicInfo"][class*="salary"]',
     '[class*="salaryTab"]',
     '[class*="SalaryModule"]',
     '[class*="payRange"]',
     '[class*="PayRange"]',
   ];
-
   for (const sel of paySelectors) {
     try {
       const el = document.querySelector(sel);
@@ -155,7 +138,6 @@ function extractGlassdoorPay() {
       }
     } catch (_) {}
   }
-
   const detailBody = qFirst(document, [
     '[data-test="job-detail-body"]',
     '.JobDetails',
@@ -163,7 +145,6 @@ function extractGlassdoorPay() {
     '#JobDescriptionContainer',
     '[class*="jobDetail"]',
   ]);
-
   if (detailBody) {
     const bodyText = detailBody.innerText || '';
     const payPatterns = [
@@ -176,75 +157,33 @@ function extractGlassdoorPay() {
       if (m) return m[0].trim();
     }
   }
-
   const allText = document.body.innerText || '';
   const globalMatch = allText.match(/(?:Employer (?:Provided|Est\.) (?:Pay|Salary)|Estimated Total Pay|Base Pay Range)[:\s]*\$[\d,]+(?:\.\d+)?(?:\s*[-–—to]+\s*\$[\d,]+(?:\.\d+)?)?(?:\s*(?:\/\s*(?:yr|year|hr|hour)|per\s+(?:year|hour)|[kK](?:\s|$)|a\s+year))?/i);
   if (globalMatch) return globalMatch[0].trim();
-
   return '';
 }
 
-const BADGE_STYLES = `
-  :host { display:inline-block; margin:0 6px; vertical-align:middle; position:relative; z-index:9999; }
-  .badge {
-    display:inline-flex; align-items:center; gap:4px; padding:3px 9px;
-    font-family:system-ui,sans-serif; font-weight:700; border-radius:6px;
-    background:rgba(255,255,255,0.12); color:#e8e8f0; cursor:help;
-    font-size:12px; line-height:1.3; white-space:nowrap; text-transform:uppercase;
-    border:1px solid rgba(255,255,255,0.18);
-    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-    box-shadow:0 2px 8px rgba(0,0,0,0.4);
-    transition:transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .badge:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,0.5); }
-  .loading { animation:pulse 1.4s infinite ease-in-out; text-transform:none; font-size:11px; }
-  @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
-  .tier-S { background:linear-gradient(135deg,rgba(251,191,36,0.35),rgba(251,191,36,0.15)); color:#fbbf24; border-color:rgba(251,191,36,0.5); text-shadow:0 0 8px rgba(251,191,36,0.4); }
-  .tier-A { background:linear-gradient(135deg,rgba(74,222,128,0.3),rgba(74,222,128,0.1)); color:#4ade80; border-color:rgba(74,222,128,0.45); }
-  .tier-B { background:linear-gradient(135deg,rgba(74,158,255,0.3),rgba(74,158,255,0.1)); color:#4a9eff; border-color:rgba(74,158,255,0.45); }
-  .tier-C { background:linear-gradient(135deg,rgba(251,146,60,0.3),rgba(251,146,60,0.1)); color:#fb923c; border-color:rgba(251,146,60,0.45); }
-  .tier-D { background:linear-gradient(135deg,rgba(248,113,113,0.3),rgba(248,113,113,0.1)); color:#f87171; border-color:rgba(248,113,113,0.45); }
-  .tier-F { background:linear-gradient(135deg,rgba(220,38,38,0.4),rgba(220,38,38,0.15)); color:#ff6b6b; border-color:rgba(220,38,38,0.55); }
-`;
+const BADGE_STYLES = `:host { display:inline-block; margin:0 6px; vertical-align:middle; position:relative; z-index:9999; } .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; font-family:system-ui,sans-serif; font-weight:700; border-radius:6px; background:rgba(255,255,255,0.12); color:#e8e8f0; cursor:help; font-size:12px; line-height:1.3; white-space:nowrap; text-transform:uppercase; border:1px solid rgba(255,255,255,0.18); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:0 2px 8px rgba(0,0,0,0.4); transition:transform 0.15s ease, box-shadow 0.15s ease; } .badge:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,0.5); } .loading { animation:pulse 1.4s infinite ease-in-out; text-transform:none; font-size:11px; } @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} } .tier-S { background:linear-gradient(135deg,rgba(251,191,36,0.35),rgba(251,191,36,0.15)); color:#fbbf24; border-color:rgba(251,191,36,0.5); text-shadow:0 0 8px rgba(251,191,36,0.4); } .tier-A { background:linear-gradient(135deg,rgba(74,222,128,0.3),rgba(74,222,128,0.1)); color:#4ade80; border-color:rgba(74,222,128,0.45); } .tier-B { background:linear-gradient(135deg,rgba(74,158,255,0.3),rgba(74,158,255,0.1)); color:#4a9eff; border-color:rgba(74,158,255,0.45); } .tier-C { background:linear-gradient(135deg,rgba(251,146,60,0.3),rgba(251,146,60,0.1)); color:#fb923c; border-color:rgba(251,146,60,0.45); } .tier-D { background:linear-gradient(135deg,rgba(248,113,113,0.3),rgba(248,113,113,0.1)); color:#f87171; border-color:rgba(248,113,113,0.45); } .tier-F { background:linear-gradient(135deg,rgba(220,38,38,0.4),rgba(220,38,38,0.15)); color:#ff6b6b; border-color:rgba(220,38,38,0.55); }`;
 
 function tierColor(tier) {
   const map = { S: '#fbbf24', A: '#4ade80', B: '#4a9eff', C: '#fb923c', D: '#f87171', F: '#ff6b6b' };
-  return map[tier?.toUpperCase()] || '#9090a0';
+  return map[tier?.toUpperCase().replace('~', '')] || '#9090a0';
 }
 
-function buildTooltipHtml(result) {
+function buildTooltipHtml(result, isListing) {
   const pay = escapeHtml(result.estimated_pay || result.pay || 'Listed');
   const market = escapeHtml(result.market_range || '');
   const fit = result.fit_score && result.fit_score !== 'N/A' ? escapeHtml(result.fit_score) : '';
   const reasoning = escapeHtml(result.reasoning || 'None provided');
-  const tier = (result.tier || result.grade || '?').toUpperCase();
-  const color = tierColor(tier);
-
-  const headerHtml = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);">
-      <span style="font-size:22px;font-weight:900;color:${color};text-shadow:0 0 12px ${color}40;">${tier}</span>
-      <div style="flex:1;">
-        <div style="color:#e8e8f0;font-size:12px;"><strong style="color:${color};">Pay:</strong> ${pay}</div>
-        ${market ? `<div style="color:#9090a0;font-size:11px;">Market: ${market}</div>` : ''}
-        ${fit ? `<div style="color:#9090a0;font-size:11px;">Fit: <strong style="color:#4ade80;">${fit}</strong></div>` : ''}
-      </div>
-    </div>`;
-
+  const tierRaw = (result.tier || result.grade || '?').toUpperCase();
+  const color = tierColor(tierRaw);
+  const displayTier = isListing ? `~${tierRaw}` : tierRaw;
+  const warningBanner = isListing ? `<div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);padding:8px 10px;border-radius:6px;margin-bottom:12px;color:#fb923c;font-size:11px;line-height:1.4;"><strong>\u26A0\uFE0F Preview Grade:</strong> Based on limited summary data. Open the full job posting for an accurate evaluation.</div>` : '';
+  const headerHtml = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);"><span style="font-size:22px;font-weight:900;color:${color};text-shadow:0 0 12px ${color}40;">${displayTier}</span><div style="flex:1;"><div style="color:#e8e8f0;font-size:12px;"><strong style="color:${color};">Pay:</strong> ${pay}</div>${market ? `<div style="color:#9090a0;font-size:11px;">Market: ${market}</div>` : ''} ${fit ? `<div style="color:#9090a0;font-size:11px;">Fit: <strong style="color:#4ade80;">${fit}</strong></div>` : ''}</div></div>`;
   const pros = (result.pros || []).map(p => `<li style="margin:3px 0;">${escapeHtml(p)}</li>`).join('');
   const flags = (result.red_flags || result.flags || []).map(f => `<li style="margin:3px 0;">${escapeHtml(f)}</li>`).join('');
-  const missing = (result.missing_skills || []).length > 0
-    ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">
-        <div style="color:#fb923c;font-size:11px;font-weight:700;margin-bottom:4px;">GAPS</div>
-        <ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">
-          ${result.missing_skills.map(s => `<li style="margin:2px 0;">${escapeHtml(s)}</li>`).join('')}
-        </ul></div>` : '';
-
-  return `
-    ${headerHtml}
-    <div style="font-size:12px;color:#b0b0c0;margin-bottom:10px;line-height:1.5;">${reasoning}</div>
-    ${pros ? `<div style="margin-bottom:6px;"><div style="color:#4ade80;font-size:11px;font-weight:700;margin-bottom:3px;">PROS</div><ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">${pros}</ul></div>` : ''}
-    ${flags ? `<div><div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:3px;">FLAGS</div><ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">${flags}</ul></div>` : ''}
-    ${missing}`;
+  const missing = (result.missing_skills || []).length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);"><div style="color:#fb923c;font-size:11px;font-weight:700;margin-bottom:4px;">GAPS</div><ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">${result.missing_skills.map(s => `<li style="margin:2px 0;">${escapeHtml(s)}</li>`).join('')}</ul></div>` : '';
+  return `${warningBanner} ${headerHtml} <div style="font-size:12px;color:#b0b0c0;margin-bottom:10px;line-height:1.5;">${reasoning}</div> ${pros ? `<div style="margin-bottom:6px;"><div style="color:#4ade80;font-size:11px;font-weight:700;margin-bottom:3px;">PROS</div><ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">${pros}</ul></div>` : ''} ${flags ? `<div><div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:3px;">FLAGS</div><ul style="padding-left:14px;margin:0;font-size:12px;color:#9090a0;">${flags}</ul></div>` : ''} ${missing}`;
 }
 
 function createBadge(container, id) {
@@ -253,14 +192,11 @@ function createBadge(container, id) {
   old.forEach(b => { if (b.getAttribute('data-jtr-id') !== id) b.remove(); });
   const existing = container.querySelector(`span[data-jtr-id="${id}"]`);
   if (existing) return existing;
-
   const host = document.createElement('span');
   host.setAttribute('data-jtr-id', id);
   host.style.cssText = 'display:inline-block;vertical-align:middle;position:relative;z-index:9999;pointer-events:all!important;';
-
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>${BADGE_STYLES}</style><span class="badge loading" id="b">Grading\u2026</span>`;
-
   host.addEventListener('mousemove', (e) => { e.stopPropagation(); if (host._tip) showTooltip(e, host._tip); });
   host.addEventListener('mouseenter', (e) => { e.stopPropagation(); if (host._tip) showTooltip(e, host._tip); });
   host.addEventListener('mouseleave', (e) => { e.stopPropagation(); hideTooltip(); });
@@ -271,19 +207,18 @@ function createBadge(container, id) {
       else showTooltip(e, host._tip);
     }
   }, true);
-
   container.prepend(host);
   return host;
 }
 
-function renderResult(host, result) {
+function renderResult(host, result, isListing) {
   if (!host || !result) return;
   const b = host.shadowRoot?.getElementById('b');
   if (!b) return;
-  const tier = (result.tier || result.grade || '?').toString().toUpperCase().trim();
-  b.className = `badge tier-${tier}`;
-  b.textContent = tier;
-  host._tip = buildTooltipHtml(result);
+  const tierRaw = (result.tier || result.grade || '?').toString().toUpperCase().trim();
+  b.className = `badge tier-${tierRaw}`;
+  b.textContent = isListing ? `~${tierRaw}` : tierRaw;
+  host._tip = buildTooltipHtml(result, isListing);
 }
 
 function renderError(host, msg) {
@@ -303,9 +238,7 @@ function applyDimming(element, mode, tierVal) {
 }
 
 function getDescriptionBody() {
-  return document.querySelector(
-    '.jobs-description__content, #jobDescriptionText, .jobDescriptionContent, [data-testid="job-details-scroll-container"], #JobDescriptionContainer'
-  );
+  return document.querySelector('.jobs-description__content, #jobDescriptionText, .jobDescriptionContent,[data-testid="job-details-scroll-container"], #JobDescriptionContainer, div[class*="JobDetails_jobDescription__"]');
 }
 
 function qFirst(root, selectors) {
@@ -344,7 +277,6 @@ function getDetailJob() {
   const host = window.location.hostname;
   const pageUrl = window.location.href;
   let title = '', description = '', container = null, company = '', location = '';
-
   if (host.includes('linkedin.com')) {
     title = qText(document, [
       '.job-details-jobs-unified-top-card__job-title h1',
@@ -381,7 +313,6 @@ function getDetailJob() {
       '.jobs-box__html-content',
       '.description__text'
     ]);
-
   } else if (host.includes('indeed.com')) {
     const titleEl = qFirst(document, [
       '[data-testid="simpler-jobTitle"]',
@@ -408,14 +339,16 @@ function getDetailJob() {
       '[data-testid="jobsearch-JobComponent-description"]',
       '.jobsearch-jobDescriptionText'
     ]);
-
   } else if (host.includes('glassdoor.com')) {
     title = qText(document, [
+      'h1[class*="heading_Heading__"]',
+      'h1[id^="jd-job-title-"]',
       '[data-test="job-title"]', '[data-test="jobTitle"]',
       'h1[data-test]', '[class*="JobDetails_jobTitle"]',
       '[class*="jobTitle"]', '.JobDetails h1', 'h1'
     ]);
     company = qText(document, [
+      'a[class*="EmployerProfile_profileContainer__"]',
       '[data-test="employer-name"]', '[data-test="employerName"]',
       '[class*="EmployerProfile_compactEmployerName"]',
       '[class*="employer-name"]', '.employer-name'
@@ -424,15 +357,16 @@ function getDetailJob() {
       '[data-test="emp-location"]', '[data-test="location"]',
       '[class*="location"]', '.location'
     ]);
-    container = (qFirst(document, [
+    container = qFirst(document, [
+      '[data-test="job-details-header"]',
       '[data-test="job-title"]', '[class*="JobDetails_jobTitle"]', '.JobDetails header', 'h1'
-    ]) || document.querySelector('h1'))?.parentElement;
+    ]) || document.querySelector('h1')?.parentElement;
     description = qText(document, [
+      'div[class*="JobDetails_jobDescription__"]',
       '[data-test="JobDescription"]', '[data-test="job-description-text"]',
       '[class*="JobDescription"]', '[class*="jobDescription"]',
       '#JobDescriptionContainer', '.jobDescriptionContent', '.desc'
     ]);
-
     if (!description) {
       const pane = qFirst(document, [
         '[data-test="job-detail-body"]', '.JobDetails',
@@ -440,7 +374,6 @@ function getDetailJob() {
       ]);
       if (pane) description = pane.innerText?.trim() || '';
     }
-
     const gdPay = extractGlassdoorPay();
     if (gdPay) {
       const payNormalized = gdPay.replace(/\s+/g, ' ');
@@ -448,21 +381,18 @@ function getDetailJob() {
         description = `Salary/Pay Information: ${payNormalized}\n\n${description}`;
       }
     }
-
   } else if (host.includes('ziprecruiter.com')) {
     const rightPane = qFirst(document, [
       '[data-testid="right-pane"]', '.job_details_container',
       '.job-detail-panel', '[role="dialog"]', '[class*="JobDetail"]'
     ]);
     const scope = rightPane || document;
-
     const titleEl = qFirst(scope, [
       'h1[data-testid="job-title"]', '[data-testid="job-title"]',
       'h2.font-bold', 'h1', 'h2[class*="text-header"]', 'h2'
     ]);
     title = titleEl?.innerText?.trim() || '';
     container = titleEl?.parentElement || null;
-
     description = qText(scope, [
       '[data-testid="job-details-scroll-container"]', '.job_description',
       '[data-testid="job-description"]', '.job-description-content', '.job-body'
@@ -474,15 +404,28 @@ function getDetailJob() {
     location = qText(scope, [
       '[data-testid="job-location"]', '.job-location', '[class*="location"]'
     ]);
+  } else if (host.includes('usajobs.gov')) {
+    title = qText(document, ['h1.usajobs-joa-summary__title', 'h1.job-title', 'h1']);
+    company = qText(document, ['.usajobs-joa-summary__department-link', '.usajobs-joa-summary__department', '.agency-name']);
+    location = qText(document, ['.usajobs-joa-location__building', '.location-name', '.location']);
+    container = qFirst(document, ['h1.usajobs-joa-summary__title', 'h1'])?.parentElement;
+    const duties = qText(document, ['#duties']);
+    const reqs = qText(document, ['#requirements']);
+    const quals = qText(document, ['#qualifications']);
+    description = [duties, reqs, quals].filter(Boolean).join('\n\n');
+    if (!description) description = qText(document, ['.usajobs-joa-section', '.job-description']);
+    if (!description) description = document.body.innerText?.trim() || '';
+  } else if (host.includes('governmentjobs.com')) {
+    title = qText(document, ['h1', '.job-details-title']);
+    company = qText(document, ['.job-details-agency', '.agency', '.department']);
+    location = qText(document, ['.job-details-location', '.location']);
+    container = qFirst(document, ['h1', '.job-details-title'])?.parentElement;
+    description = qText(document, ['#details-info', '#job-details-content', '.job-description', '.summary']);
   }
-
   if (!title || title.toLowerCase().match(/\d+\s+jobs/) || title.length < 3) return null;
-
   const ldDesc = getJsonLdDescription();
   if (ldDesc.length > 50) description = ldDesc + '\n\n' + description;
-
   if (!title || !container || !description) return null;
-
   return [{
     title: title.trim(),
     description: truncate(description.trim(), DESC_LIMIT),
@@ -493,7 +436,6 @@ function getDetailJob() {
 function getListingJobs() {
   const host = window.location.hostname;
   const jobs = [];
-
   if (host.includes('linkedin.com')) {
     const cards = document.querySelectorAll([
       '.job-card-container--clickable',
@@ -503,7 +445,6 @@ function getListingJobs() {
       '.scaffold-layout__list-item',
       '[data-view-name="job-card"]'
     ].join(','));
-
     cards.forEach(card => {
       if (card.querySelector('span[data-jtr-id]')) return;
       const titleEl = qFirst(card, [
@@ -518,7 +459,6 @@ function getListingJobs() {
       ]);
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
-
       const company = qText(card, [
         '.job-card-container__primary-description',
         '.job-card-container__company-name',
@@ -532,19 +472,16 @@ function getListingJobs() {
       const linkEl = card.querySelector('a[href*="/jobs/view/"]');
       const jobUrl = linkEl?.href || '';
       const snippet = card.innerText?.trim() || '';
-
       const badgeContainer = titleEl?.closest('h3,h2,div[class*="title"]') || titleEl?.parentElement || card;
       jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
-
   if (host.includes('indeed.com')) {
     const cards = document.querySelectorAll([
       '.job_seen_beacon', '.resultContent',
       'li[class*="JobResult"]', '[data-testid="slider_item"]',
       '.jobsearch-ResultsList > li'
     ].join(','));
-
     cards.forEach(card => {
       if (card.querySelector('span[data-jtr-id]')) return;
       const titleEl = qFirst(card, [
@@ -554,7 +491,6 @@ function getListingJobs() {
       ]);
       const title = titleEl?.innerText?.trim().replace(/\s*new$/i, '');
       if (!title || title.length < 3) return;
-
       const company = qText(card, [
         '[data-testid="company-name"]', '.companyName', '.company_location .companyName'
       ]);
@@ -568,7 +504,6 @@ function getListingJobs() {
       jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
-
   if (host.includes('glassdoor.com')) {
     const cards = document.querySelectorAll([
       '[data-test="jobListing"]',
@@ -578,7 +513,6 @@ function getListingJobs() {
       'article[class*="job"]',
       '[id^="job-listing-"]'
     ].join(','));
-
     cards.forEach(card => {
       if (card.querySelector('span[data-jtr-id]')) return;
       const titleEl = qFirst(card, [
@@ -593,13 +527,11 @@ function getListingJobs() {
       ]);
       const title = titleEl?.innerText?.trim();
       if (!title || title.length < 3) return;
-
       const company = qText(card, [
         '[data-test="employer-name"]',
         '[class*="EmployerProfile_compactEmployerName"]',
         '[class*="employer"]', '.employer-name'
       ]).replace(/[\d.]+\s*$/, '').trim();
-
       const location = qText(card, [
         '[data-test="emp-location"]', '[data-test="location"]',
         '[class*="location"]', '.location'
@@ -618,7 +550,6 @@ function getListingJobs() {
       const badgeContainer = titleEl?.parentElement || card;
       jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
-
     if (jobs.length === 0) {
       document.querySelectorAll('a[href*="/job-listing/"], a[href*="/partner/jobListing"]').forEach(a => {
         const title = a.innerText?.trim();
@@ -631,7 +562,6 @@ function getListingJobs() {
       });
     }
   }
-
   if (host.includes('ziprecruiter.com')) {
     const cards = document.querySelectorAll([
       'article[data-testid="job-result-item"]',
@@ -640,7 +570,6 @@ function getListingJobs() {
       '[class*="job-results"] > li',
       '[class*="JobResults"] > article'
     ].join(','));
-
     if (cards.length > 0) {
       cards.forEach(card => {
         if (card.querySelector('span[data-jtr-id]')) return;
@@ -651,7 +580,6 @@ function getListingJobs() {
         const title = titleEl?.innerText?.trim();
         if (!title || title.length < 4 || title.match(/seekers|businesses|hiring/i)) return;
         if (titleEl?.closest('[data-testid="right-pane"],[role="dialog"]')) return;
-
         const company = qText(card, ['[data-testid="job-company"]', '.company-name', '[class*="company"]']);
         const location = qText(card, ['[data-testid="job-location"]', '.job-location', '[class*="location"]']);
         const linkEl = qFirst(card, ['a[href*="/jobs/"]', 'a[href*="/job/"]', 'a[href*="/c/"]']);
@@ -660,7 +588,6 @@ function getListingJobs() {
         jobs.push({ title, description: card.innerText?.slice(0, 300) || '', container: badgeContainer, isListing: true, company, location, url: jobUrl });
       });
     }
-
     if (jobs.length === 0) {
       document.querySelectorAll('h2, [data-testid="job-title"], .job-title').forEach(titleEl => {
         const title = titleEl.innerText?.trim();
@@ -675,23 +602,48 @@ function getListingJobs() {
       });
     }
   }
-
+  if (host.includes('usajobs.gov')) {
+    const cards = document.querySelectorAll('.usajobs-search-result--core, .usajobs-search-result, .search-result-item');
+    cards.forEach(card => {
+      if (card.querySelector('span[data-jtr-id]')) return;
+      const titleEl = qFirst(card, ['.usajobs-search-result__title a', 'h3 a', 'a.job-title']);
+      const title = titleEl?.innerText?.trim();
+      if (!title || title.length < 3) return;
+      const company = qText(card, ['.usajobs-search-result__department', '.agency-name']);
+      const location = qText(card, ['.usajobs-search-result__location', '.location']);
+      const jobUrl = titleEl?.href || '';
+      const snippet = qText(card, ['.usajobs-search-result__details', '.summary']) || card.innerText?.trim() || '';
+      const badgeContainer = titleEl?.parentElement || card;
+      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+    });
+  }
+  if (host.includes('governmentjobs.com')) {
+    const cards = document.querySelectorAll('.job-item, tr.job-table-row, .list-item');
+    cards.forEach(card => {
+      if (card.querySelector('span[data-jtr-id]')) return;
+      const titleEl = qFirst(card, ['.job-item-title a', 'h3 a', 'a[href*="/jobs/"]']);
+      const title = titleEl?.innerText?.trim();
+      if (!title || title.length < 3) return;
+      const company = qText(card, ['.job-item-agency', '.department', '.agency']);
+      const location = qText(card, ['.job-item-location', '.location']);
+      const jobUrl = titleEl?.href || '';
+      const snippet = qText(card, ['.job-item-snippet', '.summary']) || card.innerText?.trim() || '';
+      const badgeContainer = titleEl?.parentElement || card;
+      jobs.push({ title, description: snippet, container: badgeContainer, isListing: true, company, location, url: jobUrl });
+    });
+  }
   return jobs.length ? jobs : null;
 }
 
 function buildSalaryBlock(currentSalary, minSalary) {
   if (currentSalary || minSalary) {
-    return `Current Salary: ${currentSalary || 'Unknown'}
-Min Desired Salary: ${minSalary || 'Unknown'}
-Grade pay harshly if the estimated pay is below the minimum desired salary.`;
+    return `Current Salary: ${currentSalary || 'Unknown'} Min Desired Salary: ${minSalary || 'Unknown'} Grade pay harshly if the estimated pay is below the minimum desired salary.`;
   }
   return `No salary anchors provided. Estimate the market salary range for each role based on title, location, seniority, and industry. Populate market_range accordingly.`;
 }
 
 async function checkLicense() {
-  const { licenseStatus, openRouterKey } = await chrome.storage.local.get([
-    'licenseStatus', 'openRouterKey'
-  ]);
+  const { licenseStatus, openRouterKey } = await chrome.storage.local.get(['licenseStatus', 'openRouterKey']);
   if (licenseStatus === 'byok' && openRouterKey) return true;
   if (licenseStatus === 'valid' || licenseStatus === 'offline') return true;
   return false;
@@ -703,57 +655,17 @@ async function gradeBatch(jobs, type) {
     jobs.forEach(j => renderError(j._host, 'License required'));
     return;
   }
-
   const { currentSalary, minSalary, resumeText, savedJobs, evalMode } = await chrome.storage.local.get([
     'currentSalary', 'minSalary', 'resumeText', 'savedJobs', 'evalMode'
   ]);
-
   const mode = evalMode || 'personal';
   let systemPrompt = '';
-
   if (mode === 'objective') {
-    systemPrompt = `You are a cynical labor-rights advocate evaluating job postings. Output ONLY valid JSON — no commentary, no markdown fences.
-Ignore candidate fit. Grade each job S–F based purely on compensation, transparency, and red flags.
-
-Output a JSON object:
-{
-  "results": [
-    { "job_index": 0, "tier": "S", "fit_score": "N/A", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags": ["string"], "missing_skills": [] }
-  ]
-}
-
-Tier rules:
-- S/A: Transparent pay at or above market, clear expectations, real benefits.
-- B/C: Standard corporate, pay within market range.
-- D/F: Toxic culture signals ("wear many hats", "fast-paced family"), missing/insulting pay, pay below market, bait-and-switch.
-- market_range: always estimate the typical salary range for this exact role + location.`;
+    systemPrompt = `You are a cynical labor-rights advocate evaluating job postings. Output ONLY valid JSON — no commentary, no markdown fences. Ignore candidate fit. Grade each job S–F based purely on compensation, transparency, and red flags. Output a JSON object: { "results": [ { "job_index": 0, "tier": "S", "fit_score": "N/A", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags": ["string"], "missing_skills": [] } ] } Tier rules: S/A: Transparent pay at or above market, clear expectations, real benefits. B/C: Standard corporate, pay within market range. D/F: Toxic culture signals ("wear many hats", "fast-paced family"), missing/insulting pay, pay below market, bait-and-switch. market_range: always estimate the typical salary range for this exact role + location.`;
   } else {
-    systemPrompt = `You are an expert tech recruiter and job evaluator. Output ONLY valid JSON — no commentary, no markdown fences.
-
-User Profile:
-${buildSalaryBlock(currentSalary, minSalary)}
-Resume:
-${resumeText || 'Not provided — estimate fit based on general job appeal.'}
-
-Output a JSON object:
-{
-  "results": [
-    { "job_index": 0, "tier": "S", "fit_score": "85%", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags": ["string"], "missing_skills": ["string"] }
-  ]
-}
-
-Tier rules:
-- S/A: above-market pay, strong resume match, great growth.
-- B/C: average pay, decent fit.
-- D/F: low pay, poor fit, toxic flags, exploitative language.
-- market_range: always estimate the typical salary range for this exact role + location.
-- If resume is missing, estimate fit_score generically and leave missing_skills empty.`;
+    systemPrompt = `You are an expert tech recruiter and job evaluator. Output ONLY valid JSON — no commentary, no markdown fences. User Profile: ${buildSalaryBlock(currentSalary, minSalary)} Resume: ${resumeText || 'Not provided — estimate fit based on general job appeal.'} Output a JSON object: { "results": [ { "job_index": 0, "tier": "S", "fit_score": "85%", "reasoning": "string", "estimated_pay": "string", "market_range": "string", "pros": ["string"], "red_flags": ["string"], "missing_skills": ["string"] } ] } Tier rules: S/A: above-market pay, strong resume match, great growth. B/C: average pay, decent fit. D/F: low pay, poor fit, toxic flags, exploitative language. market_range: always estimate the typical salary range for this exact role + location. If resume is missing, estimate fit_score generically and leave missing_skills empty.`;
   }
-
-  const userContent = `Rate these ${jobs.length} job(s):\n\n` + jobs.map((j, i) =>
-    `[Job Index: ${i}]\nTitle: ${j.title}\nCompany: ${j.company || 'Unknown'}\nLocation: ${j.location || 'Not listed'}\nDescription: ${j.description}`
-  ).join('\n---\n');
-
+  const userContent = `Rate these ${jobs.length} job(s):\n\n` + jobs.map((j, i) => `[Job Index: ${i}]\nTitle: ${j.title}\nCompany: ${j.company || 'Unknown'}\nLocation: ${j.location || 'Not listed'}\nDescription: ${j.description}`).join('\n---\n');
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'fetchOpenRouter',
@@ -764,31 +676,25 @@ Tier rules:
       ],
       temperature: 0.1
     });
-
     if (response.error || !response.ok) {
       const msg = response.data?.error?.message || response.error || 'API Error';
       throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
-
     if (!response.data?.choices?.[0]) throw new Error('Invalid API response structure');
-
     retryDelay = 100;
-
     const usage = response.data.usage;
     if (usage) {
       const { apiTokens } = await chrome.storage.local.get('apiTokens');
       chrome.storage.local.set({ apiTokens: (apiTokens || 0) + (usage.total_tokens || 0) });
     }
-
     let raw = response.data.choices[0].message.content;
-    raw = raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+    raw = raw.replace(/(?:json)?/gi, '').replace(/`/g, '').trim();
     const fc = raw.indexOf('{'), fs = raw.indexOf('[');
     let start = -1, end = -1;
     if (fc !== -1 && (fs === -1 || fc < fs)) { start = fc; end = raw.lastIndexOf('}'); }
     else if (fs !== -1) { start = fs; end = raw.lastIndexOf(']'); }
     if (start === -1 || end <= start) throw new Error('No JSON found in response');
     raw = raw.substring(start, end + 1);
-
     let parsed = JSON.parse(raw);
     function lcKeys(o) {
       if (Array.isArray(o)) return o.map(lcKeys);
@@ -796,27 +702,19 @@ Tier rules:
       return o;
     }
     parsed = lcKeys(parsed);
-
-    let results = parsed.results && Array.isArray(parsed.results) ? parsed.results
-      : Array.isArray(parsed) ? parsed : [parsed];
-
+    let results = parsed.results && Array.isArray(parsed.results) ? parsed.results : Array.isArray(parsed) ? parsed : [parsed];
     const currentSaved = savedJobs || [];
     let changed = false;
-
     results.forEach((result, i) => {
       const idx = result.job_index !== undefined ? result.job_index : i;
       const job = jobs[idx];
       if (!job) return;
-
       const tierVal = (result.tier || result.grade || '?').toString().toLowerCase();
       const jobKey = hashJob(job.title, job.company) + '-' + type;
-
       gradeCache.set(jobKey, result);
-      renderResult(job._host, result);
-
+      renderResult(job._host, result, job.isListing);
       const dimmingTarget = job.isListing ? job.container : getDescriptionBody();
       applyDimming(dimmingTarget, mode, tierVal);
-
       if (type === 'detail' && (tierVal === 's' || tierVal === 'a' || tierVal === 'b')) {
         const dedupKey = ((job.url || '') + '|' + job.title).toLowerCase();
         if (!currentSaved.some(s => ((s.url || '') + '|' + s.title).toLowerCase() === dedupKey)) {
@@ -847,12 +745,10 @@ Tier rules:
         }
       }
     });
-
     if (changed) {
       while (currentSaved.length > 200) currentSaved.shift();
       chrome.storage.local.set({ savedJobs: currentSaved });
     }
-
     if (type === 'detail') setTimeout(highlightKeywordsInPage, 400);
     persistCache();
   } catch (err) {
@@ -861,7 +757,6 @@ Tier rules:
     else if (msg.toLowerCase().includes('license')) msg = 'License Required';
     else if (msg.includes('JSON') || msg.includes('Unexpected token')) msg = 'Parse Error';
     else if (msg.length > 22) msg = 'API Error';
-    console.warn('[JTR]', err.message);
     jobs.forEach(j => renderError(j._host, msg));
   }
 }
@@ -873,7 +768,7 @@ function enqueueJobs(jobs, type, mode) {
     if (cached) {
       const host = createBadge(job.container, key);
       if (host) {
-        renderResult(host, cached);
+        renderResult(host, cached, job.isListing);
         const tierVal = (cached.tier || cached.grade || '?').toString().toLowerCase();
         applyDimming(job.isListing ? job.container : getDescriptionBody(), mode, tierVal);
       }
@@ -881,7 +776,6 @@ function enqueueJobs(jobs, type, mode) {
     }
     if (type === 'detail' && pendingDetails.some(q => hashJob(q.title, q.company) + '-detail' === key)) continue;
     if (type === 'list' && pendingListings.some(q => hashJob(q.title, q.company) + '-list' === key)) continue;
-
     const host = createBadge(job.container, key);
     if (!host) continue;
     job._host = host;
@@ -942,12 +836,11 @@ function initGlassdoorWatchers() {
       glassdoorJobChanged();
     }
   }, 500);
-
   document.addEventListener('click', (e) => {
     const jobCard = e.target.closest(
       '[data-test="jobListing"], li[class*="JobsList"], [class*="JobCard"], ' +
       'a[href*="/job-listing/"], a[href*="/partner/jobListing"], a[data-test="job-link"], ' +
-      '[id^="job-listing-"], [class*="jobCard"]'
+      '[id^="job-listing-"],[class*="jobCard"]'
     );
     if (jobCard) {
       setTimeout(() => {
@@ -959,7 +852,6 @@ function initGlassdoorWatchers() {
       }, 300);
     }
   }, true);
-
   const detailPane = qFirst(document, [
     '[data-test="job-detail-body"]',
     '.JobDetails',
@@ -987,35 +879,22 @@ function initGlassdoorWatchers() {
 async function init() {
   initTooltip();
   await loadCache();
-
   const { resumeText, keywordHighlight } = await chrome.storage.local.get(['resumeText', 'keywordHighlight']);
   keywordHighlightActive = !!keywordHighlight;
   if (resumeText) extractResumeKeywords(resumeText);
-
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.keywordHighlight) keywordHighlightActive = !!changes.keywordHighlight.newValue;
   });
-
   const fixStyle = document.createElement('style');
-  fixStyle.textContent = `
-    span[data-jtr-id] {
-      position: relative !important;
-      z-index: 9999 !important;
-      pointer-events: all !important;
-      display: inline-block !important;
-    }
-  `;
+  fixStyle.textContent = `span[data-jtr-id] { position: relative !important; z-index: 9999 !important; pointer-events: all !important; display: inline-block !important; }`;
   document.head.appendChild(fixStyle);
-
   scan();
-
   const observer = new MutationObserver(() => {
     if (observer._t) clearTimeout(observer._t);
     observer._t = setTimeout(scan, 700);
   });
   observer.observe(document.body, { childList: true, subtree: true });
   setInterval(scan, POLL_INTERVAL);
-
   if (window.location.hostname.includes('glassdoor.com')) {
     initGlassdoorWatchers();
   }
