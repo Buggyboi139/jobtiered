@@ -3,6 +3,45 @@ const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
 const LICENSE_CHECK_ALARM = "licenseCheck";
 const LICENSE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+function getJwtExpiry(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1])).exp;
+  } catch (e) {
+    return 0;
+  }
+}
+
+async function getValidSession() {
+  const { session } = await chrome.storage.local.get("session");
+  if (!session?.access_token) return null;
+
+  const exp = getJwtExpiry(session.access_token);
+  if (Date.now() / 1000 > exp - 60) {
+    if (!session.refresh_token) return null;
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+      if (!resp.ok) {
+        await chrome.storage.local.remove(['session', 'licenseStatus', 'licensePlan']);
+        return null;
+      }
+      const newSession = await resp.json();
+      if (!newSession.user) newSession.user = session.user;
+      await chrome.storage.local.set({ session: newSession });
+      return newSession;
+    } catch (e) {
+      return null;
+    }
+  }
+  return session;
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(LICENSE_CHECK_ALARM, { periodInMinutes: 1440 });
   validateAndCacheLicense();
@@ -24,7 +63,7 @@ async function checkLicenseCacheAge() {
 }
 
 async function validateAndCacheLicense() {
-  const { session } = await chrome.storage.local.get("session");
+  const session = await getValidSession();
 
   if (!session?.access_token) {
     await chrome.storage.local.set({
@@ -95,7 +134,7 @@ async function validateAndCacheLicense() {
 }
 
 async function edgeFunctionCall(action, payload = {}) {
-  const { session } = await chrome.storage.local.get("session");
+  const session = await getValidSession();
   if (!session?.access_token) return { error: "Not logged in." };
 
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
@@ -168,7 +207,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleDeleteAccount() {
-  const { session } = await chrome.storage.local.get("session");
+  const session = await getValidSession();
   if (!session?.access_token) return { error: "Not logged in." };
 
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
@@ -192,8 +231,8 @@ async function handleDeleteAccount() {
 }
 
 async function handleOpenRouterFetch(request) {
-  const { licenseStatus, openRouterKey, session } = await chrome.storage.local.get([
-    "licenseStatus", "openRouterKey", "session"
+  const { licenseStatus, openRouterKey } = await chrome.storage.local.get([
+    "licenseStatus", "openRouterKey"
   ]);
 
   if (licenseStatus === "byok") {
@@ -225,6 +264,8 @@ async function handleOpenRouterFetch(request) {
   }
 
   const isValid = licenseStatus === "valid" || licenseStatus === "offline";
+  const session = await getValidSession();
+  
   if (!isValid || !session?.access_token) return { error: "Invalid license or not logged in." };
 
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
