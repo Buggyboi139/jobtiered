@@ -44,6 +44,7 @@
     {
       "matches": [
         "*://*.linkedin.com/jobs/*",
+        "*://*.linkedin.com/my-items/saved-jobs/*",
         "*://*.linkedin.com/feed/*",
         "*://*.indeed.com/*",
         "*://*.glassdoor.com/Job/*",
