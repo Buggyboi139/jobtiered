@@ -4,43 +4,63 @@ const HIGHLIGHT_CATEGORIES = {
     bg: 'rgba(239,68,68,0.20)',
     outline: '1px solid rgba(239,68,68,0.45)',
     terms:[
-      'wear many hats', 'wear multiple hats', 'fast-paced', 'fast paced',
-      'startup mentality', 'self-starter', 'self starter', 'rockstar',
-      'rock star', 'ninja', 'guru', 'hustle', 'comfortable with ambiguity',
-      'above and beyond', 'go above and beyond', 'family atmosphere',
-      'like a family', 'work hard play hard', 'passionate about',
-      'agile environment', 'entrepreneurial spirit', 'do whatever it takes',
-      'ownership mentality', 'results-driven', 'results driven',
-      'dynamic environment', 'fast growing', 'fast-growing', 'high growth',
-      'scrappy', 'can do attitude', 'can-do attitude', 'highly motivated',
-      'strong work ethic', 'must be able to', 'unlimited pto',
-      'mission-driven', 'mission driven', 'competitive salary', 'market rate',
-      'unlimited vacation', 'unlimited time off', 'other duties as assigned',
-      'roll up your sleeves', 'no big egos', 'no ego', 'move fast'
+      'wear many hats', 'deal with ambiguity', 'thick skin', 'self-starter', 
+      'fast-paced environment', 'agile environment', 'hit the ground running', 
+      'always on', 'tight deadlines', 'high pressure', 'willingness to work long hours', 
+      'whatever it takes', 'hustle', 'work hard play hard', 'trial period', 
+      'unpaid task', 'temp-to-hire', 'commission only', 'draw against commission', 
+      'other duties as assigned', 'rockstar', 'ninja', 'guru', 'we are a family', 
+      'no big egos'
     ]
   },
-  resumeSkill: {
-    label: 'Resume Skill',
-    bg: 'rgba(59,130,246,0.20)',
-    outline: '1px solid rgba(59,130,246,0.45)',
-    terms:[]
-  },
-  compensation: {
-    label: 'Compensation',
+  greenFlag: {
+    label: 'Green Flag',
     bg: 'rgba(34,197,94,0.18)',
     outline: '1px solid rgba(34,197,94,0.42)',
     terms:[
-      'salary', 'base salary', 'base pay', 'pay range', 'total compensation',
-      'compensation', 'equity', 'stock options', 'rsu', 'rsus', 'espp',
-      'bonus', 'annual bonus', 'signing bonus', 'commission', 'profit sharing',
-      '401k', '401(k)', 'pto', 'paid time off', 'parental leave',
-      'maternity leave', 'paternity leave', 'health insurance', 'healthcare',
-      'medical', 'dental', 'vision', 'benefits', 'remote work',
-      'work from home', 'hybrid', 'stipend', 'relocation', 'per hour',
-      'per year', 'annually', 'overtime', 'flexible hours', 'flexible schedule',
-      'four day', '4-day', 'sabbatical', 'tuition', 'education reimbursement',
-      'professional development', 'home office', 'internet stipend'
+      'work-life balance', 'psychological safety', 'no micromanagement', 'autonomy', 
+      'mentorship', 'professional development', 'learning budget', 'paid training', 
+      'internal mobility', 'promote from within', 'continuing education', 'inclusive', 
+      'neurodivergent', 'ergonomic', 'equal opportunity', 'reasonable accommodation'
     ]
+  },
+  compensationLogistics: {
+    label: 'Pay & Logistics',
+    bg: 'rgba(251,191,36,0.20)',
+    outline: '1px solid rgba(251,191,36,0.45)',
+    terms:[
+      'base salary', 'base pay', 'ote', 'on-target earnings', 'hourly rate', 
+      'salary range', 'compensation', 'sign-on bonus', 'retention bonus', 
+      'commission', 'profit sharing', 'overtime', 'equity', 'stock options', 
+      'rsu', 'espp', 'vesting', 'cliff', '401k', '401(k)', '401(k) match', 'pension', 
+      'health insurance', 'medical', 'dental', 'vision', 'hsa', 'fsa', 'mental health', 
+      'fertility benefits', 'gym stipend', 'wellness', 'pto', 'paid time off', 
+      'unlimited pto', 'sabbatical', 'parental leave', 'maternity', 'paternity', 
+      'sick leave', 'company holidays', 'tuition reimbursement', 'student loan repayment', 
+      'commuter benefits', 'catered lunches', 'visa sponsorship', 'green card', 
+      'fully remote', 'remote-first', 'hybrid', 'on-site', 'return to office', 'rto', 
+      'relocation assistance', 'distributed team', 'digital nomad', 'time zone', 
+      'travel required', 'asynchronous', 'core hours', 'four-day workweek', '4-day', 
+      'flexible schedule', 'shift work', 'weekend availability'
+    ]
+  },
+  requirements: {
+    label: 'Requirements',
+    bg: 'rgba(168,85,247,0.18)',
+    outline: '1px solid rgba(168,85,247,0.42)',
+    terms:[
+      'years of experience', 'entry-level', 'junior', 'senior', 'lead', 'manager', 
+      'director', 'executive', 'leadership', 'communication', 'problem solving', 
+      'analytical', 'teamwork', 'adaptability', 'conflict resolution', 'negotiation', 
+      'customer service', 'project management', 'cross-functional', "bachelor's degree", 
+      "master's degree", 'phd', 'certification', 'license required', 'high school diploma'
+    ]
+  },
+  resumeSkill: {
+    label: 'Resume Match',
+    bg: 'rgba(59,130,246,0.20)',
+    outline: '1px solid rgba(59,130,246,0.45)',
+    terms:[]
   }
 };
 
@@ -52,21 +72,17 @@ let _expectedMarks = 0;
 
 function extractResumeKeywords(text) {
   if (!text) {
-    resumeKeywords = [];
+    resumeKeywords =[];
     HIGHLIGHT_CATEGORIES.resumeSkill.terms =[];
     return;
   }
 
   const capTerms = text.match(
     /\b([A-Z][a-zA-Z0-9+#./]*(?:\.[a-zA-Z]+)*(?:\s[A-Z][a-zA-Z0-9+#./]+){0,2}|[A-Z]{2,}[0-9]*)\b/g
-  ) ||[];
+  ) || [];
 
-  const lowerPattern = /\b(python|javascript|typescript|react|angular|vue|svelte|node\.?js|express|django|flask|fastapi|rails|spring|laravel|docker|kubernetes|k8s|aws|gcp|azure|git|github|gitlab|linux|bash|shell|sql|nosql|mongodb|postgresql|mysql|sqlite|redis|kafka|elasticsearch|opensearch|terraform|ansible|jenkins|grafana|prometheus|datadog|rest|graphql|grpc|protobuf|microservices|devops|ci\/cd|agile|scrum|kanban|jira|confluence|figma|sketch|zeplin|swift|kotlin|go|golang|rust|scala|java|c\+\+|c#|\.net|php|ruby|matlab|jupyter|pandas|numpy|tensorflow|pytorch|keras|scikit-?learn|hadoop|spark|airflow|dbt|snowflake|databricks|looker|tableau|power\s?bi|excel|html|css|sass|scss|webpack|vite|jest|cypress|selenium|playwright|flutter|unity|unreal|blockchain|solidity|ux|ui|product management|project management|data engineering|data science|machine learning|deep learning|nlp|llm|computer vision|reinforcement learning|a\/b testing|analytics|data analysis|sql server|oracle|firebase|supabase|nextjs|next\.js|nuxt|remix|astro|tailwind|bootstrap|material\s?ui|chakra|styled\s?components|redux|mobx|zustand|rxjs|graphql|apollo|prisma|typeorm|sequelize|fastify|nestjs|nest\.js|spring\s?boot|hibernate|mybatis|junit|pytest|mocha|chai|vitest|storybook|chromatic)\b/gi;
-  const lowerTerms = text.match(lowerPattern) ||[];
-
-  const all = [...capTerms, ...lowerTerms.map(t => t.trim())];
   const cleaned =[...new Set(
-    all.map(t => t.trim()).filter(t => t.length > 1 && t.length < 50 && !/^\d+$/.test(t))
+    capTerms.map(t => t.trim()).filter(t => t.length > 1 && t.length < 50 && !/^\d+$/.test(t))
   )];
 
   resumeKeywords = cleaned.slice(0, 100);
@@ -102,7 +118,7 @@ function _collectTextNodes(container) {
 }
 
 function _buildCategoryPatterns() {
-  const order =['redFlag', 'resumeSkill', 'compensation'];
+  const order =['redFlag', 'greenFlag', 'compensationLogistics', 'requirements', 'resumeSkill'];
   const patterns =[];
   for (const catKey of order) {
     const cat = HIGHLIGHT_CATEGORIES[catKey];
