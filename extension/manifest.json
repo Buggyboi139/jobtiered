@@ -56,7 +56,23 @@
         "*://*.governmentjobs.com/*",
         "*://*.usajobs.gov/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content/constants.js",
+        "content/utils.js",
+        "content/ui.js",
+        "content/cache.js",
+        "content/keywords.js",
+        "content/platforms/linkedin.js",
+        "content/platforms/indeed.js",
+        "content/platforms/glassdoor.js",
+        "content/platforms/ziprecruiter.js",
+        "content/platforms/usajobs.js",
+        "content/platforms/governmentjobs.js",
+        "content/grading.js",
+        "content/queue.js",
+        "content/scanner.js",
+        "content/main.js"
+      ],
       "run_at": "document_idle"
     }
   ]
