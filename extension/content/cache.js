@@ -16,5 +16,4 @@ async function persistCache() {
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.gradeHistory && !changes.gradeHistory.newValue) gradeCache.clear();
-  if (changes.resumeText) extractResumeKeywords(changes.resumeText.newValue || '');
 });

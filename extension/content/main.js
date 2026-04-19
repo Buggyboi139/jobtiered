@@ -7,7 +7,21 @@ async function init() {
   if (resumeText) extractResumeKeywords(resumeText);
 
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.keywordHighlight) keywordHighlightActive = !!changes.keywordHighlight.newValue;
+    if (changes.keywordHighlight) {
+      keywordHighlightActive = !!changes.keywordHighlight.newValue;
+      if (keywordHighlightActive) {
+        highlightKeywordsInPage();
+      } else {
+        teardownHighlights(getDescriptionBody());
+      }
+    }
+    if (changes.resumeText) {
+      extractResumeKeywords(changes.resumeText.newValue || '');
+      if (keywordHighlightActive) {
+        teardownHighlights(getDescriptionBody());
+        highlightKeywordsInPage();
+      }
+    }
   });
 
   const fixStyle = document.createElement('style');

@@ -147,8 +147,7 @@ function linkedInJobChanged() {
   lastDetailHash = '';
   const oldBadges = document.querySelectorAll('span[data-jtr-id$="-detail"]');
   oldBadges.forEach(b => b.remove());
-  const descEl = getDescriptionBody();
-  if (descEl) descEl.removeAttribute('data-jtr-highlighted');
+  teardownHighlights(getDescriptionBody());
   setTimeout(scan, 300);
   setTimeout(scan, 1000);
   setTimeout(scan, 2500);

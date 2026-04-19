@@ -68,8 +68,7 @@ function scan() {
       const newHash = hashJob(detailJobs[0].title, detailJobs[0].company);
       if (newHash !== lastDetailHash) {
         lastDetailHash = newHash;
-        const descEl = getDescriptionBody();
-        if (descEl) descEl.removeAttribute('data-jtr-highlighted');
+        teardownHighlights(getDescriptionBody());
       }
       enqueueJobs(detailJobs, 'detail', mode);
     }
