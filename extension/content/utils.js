@@ -49,7 +49,7 @@ function getJsonLdDescription() {
 
 function getDescriptionBody() {
   return document.querySelector(
-    '#job-details, .jobs-description__content, .jobs-description-content, #jobDescriptionText, .jobDescriptionContent,[data-testid="job-details-scroll-container"], #JobDescriptionContainer, div[class*="JobDetails_jobDescription__"], #details-info, .usajobs-joa-section, .job-details-content'
+    '[data-test-id="expandable-text-box"], #job-details, .jobs-description__content, .jobs-description-content, #jobDescriptionText, .jobDescriptionContent,[data-testid="job-details-scroll-container"], #JobDescriptionContainer, div[class*="JobDetails_jobDescription__"], #details-info, .usajobs-joa-section, .job-details-content'
   );
 }
 
