@@ -3,7 +3,7 @@ const HIGHLIGHT_CATEGORIES = {
     label: 'Red Flag',
     bg: 'rgba(239,68,68,0.20)',
     outline: '1px solid rgba(239,68,68,0.45)',
-    terms: [
+    terms:[
       'wear many hats', 'wear multiple hats', 'fast-paced', 'fast paced',
       'startup mentality', 'self-starter', 'self starter', 'rockstar',
       'rock star', 'ninja', 'guru', 'hustle', 'comfortable with ambiguity',
@@ -23,13 +23,13 @@ const HIGHLIGHT_CATEGORIES = {
     label: 'Resume Skill',
     bg: 'rgba(59,130,246,0.20)',
     outline: '1px solid rgba(59,130,246,0.45)',
-    terms: []
+    terms:[]
   },
   compensation: {
     label: 'Compensation',
     bg: 'rgba(34,197,94,0.18)',
     outline: '1px solid rgba(34,197,94,0.42)',
-    terms: [
+    terms:[
       'salary', 'base salary', 'base pay', 'pay range', 'total compensation',
       'compensation', 'equity', 'stock options', 'rsu', 'rsus', 'espp',
       'bonus', 'annual bonus', 'signing bonus', 'commission', 'profit sharing',
@@ -47,23 +47,25 @@ const HIGHLIGHT_CATEGORIES = {
 let _hlMatchCounts = {};
 let _hlObserver = null;
 const _JTR_HL_ATTR = 'data-jtr-highlighted';
+let _lastDescText = '';
+let _expectedMarks = 0;
 
 function extractResumeKeywords(text) {
   if (!text) {
     resumeKeywords = [];
-    HIGHLIGHT_CATEGORIES.resumeSkill.terms = [];
+    HIGHLIGHT_CATEGORIES.resumeSkill.terms =[];
     return;
   }
 
   const capTerms = text.match(
     /\b([A-Z][a-zA-Z0-9+#./]*(?:\.[a-zA-Z]+)*(?:\s[A-Z][a-zA-Z0-9+#./]+){0,2}|[A-Z]{2,}[0-9]*)\b/g
-  ) || [];
+  ) ||[];
 
   const lowerPattern = /\b(python|javascript|typescript|react|angular|vue|svelte|node\.?js|express|django|flask|fastapi|rails|spring|laravel|docker|kubernetes|k8s|aws|gcp|azure|git|github|gitlab|linux|bash|shell|sql|nosql|mongodb|postgresql|mysql|sqlite|redis|kafka|elasticsearch|opensearch|terraform|ansible|jenkins|grafana|prometheus|datadog|rest|graphql|grpc|protobuf|microservices|devops|ci\/cd|agile|scrum|kanban|jira|confluence|figma|sketch|zeplin|swift|kotlin|go|golang|rust|scala|java|c\+\+|c#|\.net|php|ruby|matlab|jupyter|pandas|numpy|tensorflow|pytorch|keras|scikit-?learn|hadoop|spark|airflow|dbt|snowflake|databricks|looker|tableau|power\s?bi|excel|html|css|sass|scss|webpack|vite|jest|cypress|selenium|playwright|flutter|unity|unreal|blockchain|solidity|ux|ui|product management|project management|data engineering|data science|machine learning|deep learning|nlp|llm|computer vision|reinforcement learning|a\/b testing|analytics|data analysis|sql server|oracle|firebase|supabase|nextjs|next\.js|nuxt|remix|astro|tailwind|bootstrap|material\s?ui|chakra|styled\s?components|redux|mobx|zustand|rxjs|graphql|apollo|prisma|typeorm|sequelize|fastify|nestjs|nest\.js|spring\s?boot|hibernate|mybatis|junit|pytest|mocha|chai|vitest|storybook|chromatic)\b/gi;
-  const lowerTerms = text.match(lowerPattern) || [];
+  const lowerTerms = text.match(lowerPattern) ||[];
 
   const all = [...capTerms, ...lowerTerms.map(t => t.trim())];
-  const cleaned = [...new Set(
+  const cleaned =[...new Set(
     all.map(t => t.trim()).filter(t => t.length > 1 && t.length < 50 && !/^\d+$/.test(t))
   )];
 
@@ -78,7 +80,7 @@ function _getCategoryStyle(catKey) {
 }
 
 function _collectTextNodes(container) {
-  const nodes = [];
+  const nodes =[];
   const walker = document.createTreeWalker(
     container,
     NodeFilter.SHOW_TEXT,
@@ -100,8 +102,8 @@ function _collectTextNodes(container) {
 }
 
 function _buildCategoryPatterns() {
-  const order = ['redFlag', 'resumeSkill', 'compensation'];
-  const patterns = [];
+  const order =['redFlag', 'resumeSkill', 'compensation'];
+  const patterns =[];
   for (const catKey of order) {
     const cat = HIGHLIGHT_CATEGORIES[catKey];
     if (!cat || cat.terms.length === 0) continue;
@@ -120,7 +122,7 @@ function _buildCategoryPatterns() {
 
 function _wrapTextNodeAllCategories(textNode, catPatterns) {
   const text = textNode.nodeValue;
-  const intervals = [];
+  const intervals =[];
 
   for (const { catKey, pattern } of catPatterns) {
     pattern.lastIndex = 0;
@@ -134,7 +136,7 @@ function _wrapTextNodeAllCategories(textNode, catPatterns) {
 
   intervals.sort((a, b) => a.start - b.start || b.end - a.end);
 
-  const nonOverlapping = [];
+  const nonOverlapping =[];
   let lastEnd = 0;
   for (const iv of intervals) {
     if (iv.start >= lastEnd) {
@@ -210,29 +212,42 @@ function highlightKeywordsInPage() {
     return;
   }
 
+  const currentText = descEl.textContent || '';
+  const currentMarks = descEl.querySelectorAll('mark[data-jtr-hl]').length;
+
+  if (descEl.hasAttribute(_JTR_HL_ATTR) && currentText === _lastDescText && currentMarks === _expectedMarks) {
+    _startHighlightWatcher();
+    return;
+  }
+
   _stopHighlightWatcher();
   teardownHighlights(descEl);
 
   const catPatterns = _buildCategoryPatterns();
-  if (catPatterns.length === 0) return;
-
-  const textNodes = _collectTextNodes(descEl);
   _hlMatchCounts = {};
+  _expectedMarks = 0;
 
-  for (const tn of textNodes) {
-    const counts = _wrapTextNodeAllCategories(tn, catPatterns);
-    for (const [cat, n] of Object.entries(counts)) {
-      _hlMatchCounts[cat] = (_hlMatchCounts[cat] || 0) + n;
+  if (catPatterns.length > 0) {
+    const textNodes = _collectTextNodes(descEl);
+    for (const tn of textNodes) {
+      const counts = _wrapTextNodeAllCategories(tn, catPatterns);
+      for (const [cat, n] of Object.entries(counts)) {
+        _hlMatchCounts[cat] = (_hlMatchCounts[cat] || 0) + n;
+        _expectedMarks += n;
+      }
     }
   }
 
   descEl.setAttribute(_JTR_HL_ATTR, '1');
+  _lastDescText = descEl.textContent || '';
+
+  _startHighlightWatcher();
   return getHighlightCounts();
 }
 
 function _startHighlightWatcher() {
   if (_hlObserver) return;
-  const root = document.querySelector('main,[role="main"],#main') || document.body;
+  const root = document.body;
   _hlObserver = new MutationObserver(() => {
     if (_hlObserver._t) clearTimeout(_hlObserver._t);
     _hlObserver._t = setTimeout(() => {
@@ -242,12 +257,11 @@ function _startHighlightWatcher() {
       }
       const descEl = getDescriptionBody();
       if (descEl) {
-        _stopHighlightWatcher();
         highlightKeywordsInPage();
       }
     }, 350);
   });
-  _hlObserver.observe(root, { childList: true, subtree: true });
+  _hlObserver.observe(root, { childList: true, subtree: true, characterData: true });
 }
 
 function _stopHighlightWatcher() {

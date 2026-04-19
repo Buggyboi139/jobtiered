@@ -30,7 +30,7 @@ function getJsonLdDescription() {
   for (const s of scripts) {
     try {
       const d = JSON.parse(s.innerText || s.textContent || '');
-      const arr = Array.isArray(d) ? d :[d];
+      const arr = Array.isArray(d) ? d : [d];
       for (const item of arr) {
         const targets = item['@graph'] ? item['@graph'] : [item];
         for (const t of targets) {
@@ -48,9 +48,14 @@ function getJsonLdDescription() {
 }
 
 function getDescriptionBody() {
-  return document.querySelector(
-    '[data-test-id="expandable-text-box"], #job-details, .jobs-description__content, .jobs-description-content, #jobDescriptionText, .jobDescriptionContent,[data-testid="job-details-scroll-container"], #JobDescriptionContainer, div[class*="JobDetails_jobDescription__"], #details-info, .usajobs-joa-section, .job-details-content'
-  );
+  return document.querySelector([
+    '[data-test-id="expandable-text-box"]', '#job-details', '.jobs-description__content', '.jobs-description-content', '.jobs-description-content__text', '.jobs-box__html-content', '.description__text', '.show-more-less-html__markup',
+    '#jobDescriptionText', '.jobsearch-jobDescriptionText', '[data-testid="jobsearch-JobComponent-description"]',
+    '#JobDescriptionContainer', 'div[class*="JobDetails_jobDescription__"]', '[data-test="JobDescription"]', '[data-test="job-description-text"]', '.jobDescriptionContent', '[class*="JobDescription"]', '[class*="jobDescription"]',
+    '[data-testid="job-details-scroll-container"]', '[data-testid="job-description"]', '.job_description', '.job-description-content', '.job-body',
+    '#details-info', '.job-details-content', '#job-details-content',
+    '.usajobs-joa-section', '#duties', '#requirements', '#qualifications'
+  ].join(', '));
 }
 
 function extractGlassdoorPay() {
