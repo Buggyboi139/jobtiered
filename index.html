@@ -3,68 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JobTiered</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<title>JobTiered - Evaluate Job Postings Instantly</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; color: #333; }
+  header { background: #0052cc; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+  header a { color: white; text-decoration: none; margin-left: 1rem; }
+  .hero { text-align: center; padding: 4rem 2rem; background: #f4f5f7; }
+  .hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+  .btn { display: inline-block; background: #0052cc; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 4px; font-weight: bold; }
+  .container { max-width: 1000px; margin: 2rem auto; padding: 0 2rem; }
+  .pricing { display: flex; gap: 2rem; justify-content: center; margin-top: 2rem; }
+  .card { border: 1px solid #dfe1e6; padding: 2rem; border-radius: 8px; width: 300px; text-align: center; }
+  footer { background: #172b4d; color: white; text-align: center; padding: 2rem; margin-top: 4rem; }
+  footer a { color: #4c9aff; text-decoration: none; margin: 0 1rem; }
+</style>
 </head>
-<body class="bg-zinc-950 text-zinc-300 font-sans antialiased selection:bg-indigo-500 selection:text-white">
-<div class="max-w-3xl mx-auto px-6 py-16">
-<header class="mb-16 border-b border-zinc-800 pb-8">
-<h1 class="text-5xl font-extrabold text-white tracking-tight mb-4">JobTiered</h1>
-<p class="text-xl text-zinc-400">Intelligent job posting evaluation extension.</p>
-</header>
-<main class="space-y-12">
-<section>
-<h2 class="text-2xl font-semibold text-white mb-4">Service Description</h2>
-<p class="leading-relaxed">JobTiered is a premium browser extension that leverages AI to evaluate, score, and tier job postings in real-time. By subscribing, users gain access to automated rating metrics directly within their browser to streamline their job search.</p>
-</section>
-<section>
-<h2 class="text-2xl font-semibold text-white mb-4">Subscription Options</h2>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<div class="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-<h3 class="text-xl font-bold text-white mb-2">Standard Plan</h3>
-<p class="text-zinc-400 mb-4">$9.99 / month</p>
-<ul class="text-zinc-300 space-y-2 mb-6">
-<li>Fully managed AI evaluation</li>
-<li>Instant real-time scoring</li>
-<li>Automatic updates</li>
-</ul>
-<button class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded-lg">Subscribe Now</button>
-</div>
-<div class="bg-zinc-900 p-6 rounded-xl border border-zinc-800">
-<h3 class="text-xl font-bold text-white mb-2">BYOK Plan</h3>
-<p class="text-zinc-400 mb-4">$4.99 / month</p>
-<ul class="text-zinc-300 space-y-2 mb-6">
-<li>Bring Your Own Key</li>
-<li>Unlimited local evaluations</li>
-<li>Full privacy control</li>
-</ul>
-<button class="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-medium py-2 px-4 rounded-lg">Subscribe Now</button>
-</div>
-</div>
-</section>
-<section>
-<div class="bg-red-950/30 border border-red-500/50 p-6 rounded-xl">
-<h2 class="text-xl font-bold text-red-500 mb-2">⚠️ IMPORTANT DISCLAIMER: BYOK TIER</h2>
-<p class="text-red-200">The Bring Your Own Key (BYOK) subscription tier DOES NOT come with API access or API credits. You are solely responsible for providing and funding your own valid API key from your chosen AI provider. We will not issue refunds for misunderstandings regarding this policy.</p>
-</div>
-</section>
-<section>
-<h2 class="text-2xl font-semibold text-white mb-4">Refund Policy</h2>
-<p class="leading-relaxed">Due to the nature of our service, which instantly incurs non-recoverable computing and third-party API costs each time a job posting is evaluated, we do not offer refunds. All subscription payments are final. If you encounter technical issues preventing the extension from working, please contact support for immediate assistance.</p>
-</section>
-<section>
-<h2 class="text-2xl font-semibold text-white mb-4">Cancellation Policy</h2>
-<p class="leading-relaxed">You may cancel your JobTiered subscription at any time. Upon cancellation, you will retain full access to all premium features until the end of your current paid billing cycle. We do not prorate cancellations or partial months.</p>
-</section>
-<section>
-<h2 class="text-2xl font-semibold text-white mb-4">Terms & Conditions</h2>
-<p class="leading-relaxed mb-4">JobTiered is a digital software-as-a-service product. There are no physical goods, return processes, or physical shipping terms. Users must be 18 years of age or older to subscribe. Any promotional pricing applies only to the specified introductory period, after which standard recurring rates apply.</p>
-</section>
-</main>
-<footer class="mt-20 pt-8 border-t border-zinc-800 text-sm text-zinc-500 flex flex-col md:flex-row gap-4 justify-between items-center">
-<p>&copy; 2026 JobTiered. All rights reserved.</p>
-<a href="mailto:dsmason321@gmail.com" class="hover:text-zinc-300 transition-colors">Contact the developer</a>
-</footer>
-</div>
+<body>
+  <header>
+    <div style="font-weight: bold; font-size: 1.2rem;">JobTiered</div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/help/">Help</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Level up your job search with JobTiered</h1>
+    <p>Evaluate job postings instantly across your favorite career sites. Scan, grade, and organize your applications seamlessly.</p>
+    <a href="https://chrome.google.com/webstore" class="btn">Install Extension</a>
+  </section>
+
+  <div class="container" id="features">
+    <h2 style="text-align: center;">How JobTiered Works</h2>
+    <div style="display: flex; gap: 2rem; margin-top: 2rem;">
+      <div>
+        <h3>Instant Grading</h3>
+        <p>Our algorithm evaluates job descriptions on the page to give you an immediate compatibility score based on your unique profile.</p>
+      </div>
+      <div>
+        <h3>Smart Caching</h3>
+        <p>Save jobs to your queue directly from the search page. JobTiered stores the data locally so you never lose track of a role.</p>
+      </div>
+      <div>
+        <h3>Universal Scanning</h3>
+        <p>Works seamlessly across the most popular job boards, standardizing the information you need to make quick decisions.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" id="pricing">
+    <h2 style="text-align: center;">Pricing</h2>
+    <div class="pricing">
+      <div class="card">
+        <h3>Free Tier</h3>
+        <p>Basic scanning and grading</p>
+        <h2>$0</h2>
+        <p>Limited daily evaluations</p>
+        <button class="btn" disabled>Current Plan</button>
+      </div>
+      <div class="card">
+        <h3>Pro Tier</h3>
+        <p>Unlimited scanning and priority queueing</p>
+        <h2>$5/mo</h2>
+        <p>Unlock all platforms and advanced metrics</p>
+        <a href="#" class="btn">Upgrade with Stripe</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2026 JobTiered. All rights reserved.</p>
+    <nav>
+      <a href="/privacy/">Privacy Policy</a>
+      <a href="/tos/">Terms of Service</a>
+      <a href="/refund/">Refund Policy</a>
+      <a href="/cancellation/">Cancellation Policy</a>
+      <a href="/help/">Help</a>
+    </nav>
+  </footer>
 </body>
 </html>
