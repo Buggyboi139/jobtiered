@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JobTiered",
   "version": "5.0",
-  "description": "AI-powered job grading on LinkedIn, Indeed, Glassdoor, ZipRecruiter, USAJOBS, and GovernmentJobs.",
+  "description": "AI-powered job grading directly on your favorite job search platforms.",
   "permissions": [
     "storage",
     "alarms",
