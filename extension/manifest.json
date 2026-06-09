@@ -5,9 +5,7 @@
   "description": "AI-powered job grading directly on your favorite job search platforms.",
   "permissions": [
     "storage",
-    "alarms",
-    "downloads",
-    "activeTab"
+    "alarms"
   ],
   "host_permissions": [
     "https://openrouter.ai/api/*",
