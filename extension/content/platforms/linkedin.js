@@ -145,12 +145,20 @@ function getLinkedInListingJobs(jobs) {
 
 function linkedInJobChanged() {
   lastDetailHash = '';
-  const oldBadges = document.querySelectorAll('span[data-jtr-id$="-detail"]');
-  oldBadges.forEach(b => b.remove());
   teardownHighlights(getDescriptionBody());
   setTimeout(scan, 300);
   setTimeout(scan, 1000);
   setTimeout(scan, 2500);
+}
+
+function maybeLinkedInDetailChanged() {
+  const detailJobs = getDetailJob();
+  if (!detailJobs) return;
+  chrome.storage.local.get('evalMode').then(({ evalMode }) => {
+    const mode = evalMode || 'personal';
+    const newHash = buildJobCacheKey(detailJobs[0], 'detail', mode);
+    if (newHash !== lastDetailHash) linkedInJobChanged();
+  });
 }
 
 function initLinkedInWatchers() {
@@ -179,15 +187,7 @@ function initLinkedInWatchers() {
   const observeTarget = descEl?.parentElement || document.querySelector('main') || document.body;
   const linkedInObserver = new MutationObserver(() => {
     if (linkedInObserver._t) clearTimeout(linkedInObserver._t);
-    linkedInObserver._t = setTimeout(() => {
-      const detailJobs = getDetailJob();
-      if (detailJobs) {
-        const newHash = hashJob(detailJobs[0].title, detailJobs[0].company);
-        if (newHash !== lastDetailHash) {
-          linkedInJobChanged();
-        }
-      }
-    }, 500);
+    linkedInObserver._t = setTimeout(maybeLinkedInDetailChanged, 500);
   });
   linkedInObserver.observe(observeTarget, { childList: true, subtree: true });
 }
