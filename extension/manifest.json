@@ -9,9 +9,7 @@
     "https://*.supabase.co/*",
     "*://*.linkedin.com/*",
     "*://*.indeed.com/*",
-    "*://*.glassdoor.com/*",
     "*://*.ziprecruiter.com/*",
-    "*://*.governmentjobs.com/*",
     "*://*.usajobs.gov/*"
   ],
   "background": { "service_worker": "background.js" },
@@ -39,13 +37,7 @@
       "*://*.linkedin.com/my-items/saved-jobs/*",
       "*://*.linkedin.com/feed/*",
       "*://*.indeed.com/*",
-      "*://*.glassdoor.com/Job/*",
-      "*://*.glassdoor.com/job-listing/*",
-      "*://*.glassdoor.com/Search/*",
-      "*://*.glassdoor.com/Jobs/*",
-      "*://*.glassdoor.com/partner/*",
       "*://*.ziprecruiter.com/*",
-      "*://*.governmentjobs.com/*",
       "*://*.usajobs.gov/*"
     ],
     "js": [
@@ -56,14 +48,12 @@
       "content/keywords.js",
       "content/platforms/linkedin.js",
       "content/platforms/indeed.js",
-      "content/platforms/glassdoor.js",
-      "content/platforms/glassdoor-patch.js",
       "content/platforms/ziprecruiter.js",
       "content/platforms/usajobs.js",
-      "content/platforms/governmentjobs.js",
       "content/grading.js",
       "content/queue.js",
       "content/scanner.js",
+      "content/workstation.js",
       "content/main.js"
     ],
     "run_at": "document_idle"
