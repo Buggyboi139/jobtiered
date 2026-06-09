@@ -252,8 +252,8 @@
       flex: 1; font-size: 12px; font-weight: 600; color: var(--text);
       line-height: 1.35;
     }
-    .job-title a { color: var(--accent); text-decoration: none; }
-    .job-title a:hover { text-decoration: underline; }
+    .job-title a { color: inherit; text-decoration: none; }
+    .job-title a:hover { color: var(--accent); }
 
     .job-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; line-height: 1.4; }
     .job-pay  { font-size: 11px; color: var(--text-dim); }
@@ -454,5 +454,6 @@
   </div>
 
   <script src="popup.js"></script>
+  <script src="popup-patch.js"></script>
 </body>
 </html>
