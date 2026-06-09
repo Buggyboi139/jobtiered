@@ -1,7 +1,11 @@
 const SUPABASE_URL = "https://ppbpqyjejyoqjuvhzlsc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_JuUEERY7RM0vVRb8_SGDlQ_EenqKT84";
+const AI_FUNCTION = "evaluate-job";
+const JOBS_FUNCTION = "saved-jobs";
+const ACCOUNT_FUNCTION = "account-delete";
 const LICENSE_CHECK_ALARM = "licenseCheck";
 const LICENSE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MANAGED_LICENSES = new Set(["valid", "lifetime", "offline"]);
 
 function getJwtExpiry(token) {
   try {
@@ -9,6 +13,16 @@ function getJwtExpiry(token) {
   } catch (e) {
     return 0;
   }
+}
+
+function normalizeSubscriptionStatus(status) {
+  if (status === 'active') return 'valid';
+  if (status === 'lifetime') return 'lifetime';
+  if (status === 'byok') return 'byok';
+  if (status === 'past_due') return 'past_due';
+  if (status === 'canceled' || status === 'cancelled') return 'canceled';
+  if (!status) return 'none';
+  return 'invalid';
 }
 
 async function getValidSession() {
@@ -68,6 +82,7 @@ async function validateAndCacheLicense() {
   if (!session?.access_token) {
     await chrome.storage.local.set({
       licenseStatus: "none",
+      licensePlan: "none",
       licenseCheckedAt: Date.now()
     });
     return;
@@ -101,31 +116,12 @@ async function validateAndCacheLicense() {
       return;
     }
 
-    if (sub.status === 'active') {
-      await chrome.storage.local.set({
-        licenseStatus: "valid",
-        licensePlan: sub.price_id || "unknown",
-        licenseCheckedAt: Date.now()
-      });
-    } else if (sub.status === 'byok' || sub.status === 'lifetime') {
-      await chrome.storage.local.set({
-        licenseStatus: "byok",
-        licensePlan: sub.price_id || "byok",
-        licenseCheckedAt: Date.now()
-      });
-    } else if (sub.status === 'past_due') {
-      await chrome.storage.local.set({
-        licenseStatus: "past_due",
-        licensePlan: sub.price_id || "unknown",
-        licenseCheckedAt: Date.now()
-      });
-    } else {
-      await chrome.storage.local.set({
-        licenseStatus: "invalid",
-        licensePlan: "unknown",
-        licenseCheckedAt: Date.now()
-      });
-    }
+    const licenseStatus = normalizeSubscriptionStatus(sub.status);
+    await chrome.storage.local.set({
+      licenseStatus,
+      licensePlan: sub.price_id || licenseStatus,
+      licenseCheckedAt: Date.now()
+    });
   } catch (_) {
     const { licenseCheckedAt } = await chrome.storage.local.get("licenseCheckedAt");
     if (licenseCheckedAt && Date.now() - licenseCheckedAt < LICENSE_CACHE_TTL_MS * 3) return;
@@ -133,18 +129,18 @@ async function validateAndCacheLicense() {
   }
 }
 
-async function edgeFunctionCall(action, payload = {}) {
+async function edgeFunctionCall(functionName, payload = {}) {
   const session = await getValidSession();
   if (!session?.access_token) return { error: "Not logged in." };
 
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
       "apikey": SUPABASE_ANON_KEY
     },
-    body: JSON.stringify({ action, ...payload })
+    body: JSON.stringify(payload)
   });
 
   const text = await resp.text();
@@ -178,28 +174,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "saveJob") {
-    edgeFunctionCall('save-job', { job: request.job })
+    edgeFunctionCall(JOBS_FUNCTION, { action: 'save-job', job: request.job })
       .then(sendResponse)
       .catch(err => sendResponse({ error: err.message }));
     return true;
   }
 
   if (request.action === "getSavedJobs") {
-    edgeFunctionCall('get-saved-jobs')
+    edgeFunctionCall(JOBS_FUNCTION, { action: 'get-saved-jobs' })
       .then(sendResponse)
       .catch(err => sendResponse({ error: err.message }));
     return true;
   }
 
   if (request.action === "updateJob") {
-    edgeFunctionCall('update-job', { jobId: request.jobId, updates: request.updates })
+    edgeFunctionCall(JOBS_FUNCTION, { action: 'update-job', jobId: request.jobId, updates: request.updates })
       .then(sendResponse)
       .catch(err => sendResponse({ error: err.message }));
     return true;
   }
 
   if (request.action === "deleteJob") {
-    edgeFunctionCall('delete-job', { jobId: request.jobId })
+    edgeFunctionCall(JOBS_FUNCTION, { action: 'delete-job', jobId: request.jobId })
       .then(sendResponse)
       .catch(err => sendResponse({ error: err.message }));
     return true;
@@ -210,21 +206,8 @@ async function handleDeleteAccount() {
   const session = await getValidSession();
   if (!session?.access_token) return { error: "Not logged in." };
 
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${session.access_token}`,
-      "Content-Type": "application/json",
-      "apikey": SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ action: 'delete-account' })
-  });
-
-  const text = await resp.text();
-  let data;
-  try { data = JSON.parse(text); } catch { return { error: "Server returned invalid response." }; }
-
-  if (!resp.ok || data.error) return { error: data.error || `Server Error ${resp.status}` };
+  const result = await edgeFunctionCall(ACCOUNT_FUNCTION, { action: 'delete-account' });
+  if (result.error) return result;
 
   await chrome.storage.local.clear();
   return { success: true };
@@ -263,12 +246,12 @@ async function handleOpenRouterFetch(request) {
     return { status: resp.status, ok: resp.ok, data };
   }
 
-  const isValid = licenseStatus === "valid" || licenseStatus === "offline";
   const session = await getValidSession();
-  
-  if (!isValid || !session?.access_token) return { error: "Invalid license or not logged in." };
+  if (!MANAGED_LICENSES.has(licenseStatus) || !session?.access_token) {
+    return { error: "Invalid license or not logged in." };
+  }
 
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/evaluate-job`, {
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/${AI_FUNCTION}`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${session.access_token}`,
