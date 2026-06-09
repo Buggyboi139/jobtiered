@@ -84,7 +84,7 @@ function initWorkstation() {
     const t = String(v || '?').toUpperCase().replace('~', '').trim();
     return ['S', 'A', 'B', 'C', 'D', 'F'].includes(t) ? t : 'x';
   };
-  const keyOf = (job) => job.id || job.dedup_key || `${job.url || ''}|${job.title || ''}|${job.company || ''}`;
+  const keyOf = (job) => job.dedup_key || job.id || `${job.url || ''}|${job.title || ''}|${job.company || ''}`;
   const setStatus = (text) => { statusEl.textContent = text; };
 
   async function setOpen(open) {
@@ -112,7 +112,8 @@ function initWorkstation() {
 
     jobsEl.innerHTML = jobs.map(job => {
       const t = tier(job.tier);
-      const k = esc(keyOf(job));
+      const rawKey = keyOf(job);
+      const k = esc(rawKey);
       const stage = job.stage || 'saved';
       const meta = [job.company, job.location].filter(Boolean).join(' · ');
       const pay = [job.pay, job.marketRange ? `Mkt: ${job.marketRange}` : '', job.fit && job.fit !== 'N/A' ? job.fit : ''].filter(Boolean).join(' · ');
@@ -169,10 +170,15 @@ function initWorkstation() {
     } else setStatus('Removed locally.');
   }
 
+  function eventElement(target) {
+    return target && target.nodeType === Node.ELEMENT_NODE ? target : target?.parentElement || null;
+  }
+
   tab.addEventListener('click', () => setOpen(true));
   close.addEventListener('click', () => setOpen(false));
   shadow.addEventListener('click', (e) => {
-    const button = e.target.closest('button');
+    const target = eventElement(e.target);
+    const button = target?.closest('button');
     if (!button) return;
     if (button.dataset.action === 'refresh') loadJobs(true);
     if (button.dataset.action === 'rescan') { scan(); setStatus('Page rescan requested.'); }
@@ -180,8 +186,10 @@ function initWorkstation() {
     if (button.dataset.remove) removeJob(button.dataset.remove);
   });
   shadow.addEventListener('change', (e) => {
-    if (e.target === stageFilter) { filterStage = stageFilter.value; render(); return; }
-    if (e.target.dataset.stage) updateStage(e.target.dataset.stage, e.target.value);
+    const target = eventElement(e.target);
+    if (!target) return;
+    if (target === stageFilter) { filterStage = stageFilter.value; render(); return; }
+    if (target.dataset.stage) updateStage(target.dataset.stage, target.value);
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.savedJobs) { savedJobs = changes.savedJobs.newValue || []; render(); }
