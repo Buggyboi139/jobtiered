@@ -54,6 +54,7 @@
       "content/queue.js",
       "content/scanner.js",
       "content/workstation.js",
+      "content/workstation-init.js",
       "content/main.js"
     ],
     "run_at": "document_idle"
