@@ -65,7 +65,7 @@ function scan() {
     if (listingJobs?.length > 0) enqueueJobs(listingJobs, 'list', mode);
     const detailJobs = getDetailJob();
     if (detailJobs) {
-      const newHash = hashJob(detailJobs[0].title, detailJobs[0].company);
+      const newHash = buildJobCacheKey(detailJobs[0], 'detail', mode);
       if (newHash !== lastDetailHash) {
         lastDetailHash = newHash;
         teardownHighlights(getDescriptionBody());
