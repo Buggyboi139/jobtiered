@@ -1,10 +1,73 @@
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function stableHash(input) {
+  const str = String(input || '');
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function normalizeTier(value) {
+  const tier = String(value || '?').toUpperCase().replace('~', '').trim();
+  return ['S', 'A', 'B', 'C', 'D', 'F'].includes(tier) ? tier : '?';
+}
+
+function normalizeJobUrl(url) {
+  if (!url) return '';
+  try {
+    const u = new URL(url, window.location.href);
+    const tracking = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'trk', 'refId', 'from', 'src', 'source', 'context', 'origin', 'redirected',
+      'ao', 's', 'q', 'l', 'radius', 'sort', 'page', 'start'
+    ];
+    tracking.forEach(k => u.searchParams.delete(k));
+    u.hash = '';
+    return `${u.origin}${u.pathname}${u.search}`.toLowerCase().replace(/\/$/, '');
+  } catch (_) {
+    return String(url).split('#')[0].split('?')[0].toLowerCase().replace(/\/$/, '');
+  }
+}
+
+function compactIdentityPart(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function hashJob(title, company) {
   return ((title || '') + '|' + (company || '')).toLowerCase().replace(/[^a-z0-9|]/g, '').slice(0, 60);
+}
+
+function buildDedupKey(job) {
+  if (!job) return '';
+  const title = compactIdentityPart(job.title);
+  const company = compactIdentityPart(job.company);
+  const location = compactIdentityPart(job.location);
+  const normalizedUrl = normalizeJobUrl(job.url);
+  const fallbackDescHash = stableHash(String(job.description || '').slice(0, 800));
+  const raw = normalizedUrl
+    ? ['url', normalizedUrl, title, company, location].join('|')
+    : ['text', title, company, location, fallbackDescHash].join('|');
+  return stableHash(raw);
+}
+
+function buildJobCacheKey(job, type, mode) {
+  if (!job) return `${type || 'job'}-${mode || 'personal'}-unknown`;
+  const raw = [
+    mode || 'personal',
+    type || 'job',
+    compactIdentityPart(job.title),
+    compactIdentityPart(job.company),
+    compactIdentityPart(job.location),
+    normalizeJobUrl(job.url),
+    stableHash(String(job.description || '').slice(0, 1000))
+  ].join('|');
+  return `jtr-${stableHash(raw)}`;
 }
 
 function truncate(text, max) {
