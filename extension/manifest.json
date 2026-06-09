@@ -10,6 +10,7 @@
     "*://*.linkedin.com/*",
     "*://*.indeed.com/*",
     "*://*.ziprecruiter.com/*",
+    "*://*.governmentjobs.com/*",
     "*://*.usajobs.gov/*"
   ],
   "background": { "service_worker": "background.js" },
@@ -26,7 +27,7 @@
   "icons": {
     "16": "images/favicon-16x16.png",
     "32": "images/favicon-32x32.png",
-    "128": "images/android-chrome-192x192.png",
+    "128": "images/favicon-16x16.png",
     "192": "images/android-chrome-192x192.png",
     "512": "images/android-chrome-512x512.png"
   },
@@ -38,6 +39,7 @@
       "*://*.linkedin.com/feed/*",
       "*://*.indeed.com/*",
       "*://*.ziprecruiter.com/*",
+      "*://*.governmentjobs.com/*",
       "*://*.usajobs.gov/*"
     ],
     "js": [
@@ -50,6 +52,7 @@
       "content/platforms/indeed.js",
       "content/platforms/ziprecruiter.js",
       "content/platforms/usajobs.js",
+      "content/platforms/governmentjobs.js",
       "content/grading.js",
       "content/queue.js",
       "content/scanner.js",
