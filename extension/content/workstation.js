@@ -11,11 +11,11 @@ function initWorkstation() {
     <style>
       :host { all: initial; }
       * { box-sizing: border-box; }
-      .tab, .panel, button, select { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .tab, .panel, button { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
       .tab { position: fixed; right: 0; top: 38%; transform: translateY(-50%); z-index: 2147483600; width: 42px; min-height: 136px; padding: 12px 8px; display: grid; place-items: center; gap: 8px; color: #bbf7d0; background: linear-gradient(145deg, rgba(30,41,59,.92), rgba(15,23,42,.98)); border: 1px solid rgba(56,189,248,.32); border-right: 0; border-radius: 16px 0 0 16px; box-shadow: 0 24px 60px rgba(0,0,0,.38); cursor: pointer; }
       .tab strong { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
       .tab span { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(135deg,#0ea5e9,#10b981 50%,#34d399); box-shadow: 0 0 14px rgba(52,211,153,.55); }
-      .panel { position: fixed; top: 0; right: 0; z-index: 2147483601; width: clamp(360px, 18vw, 520px); max-width: calc(100vw - 8px); height: 100dvh; color: #f8fafc; background: #05070a; border-left: 1px solid rgba(56,189,248,.32); box-shadow: -24px 0 60px rgba(0,0,0,.42); transform: translateX(calc(100% + 8px)); transition: transform .22s ease; overflow: hidden; display: grid; grid-template-rows: auto auto 1fr auto; }
+      .panel { position: fixed; top: 0; right: 0; z-index: 2147483601; width: clamp(440px, 24vw, 680px); max-width: calc(100vw - 8px); height: 100dvh; color: #f8fafc; background: #05070a; border-left: 1px solid rgba(56,189,248,.32); box-shadow: -24px 0 60px rgba(0,0,0,.42); transform: translateX(calc(100% + 8px)); transition: transform .22s ease; overflow: hidden; display: grid; grid-template-rows: auto auto 1fr auto; }
       .panel.open { transform: translateX(0); }
       .panel:before { content: ''; position: absolute; inset: 0; background: radial-gradient(at 0% 0%, rgba(16,185,129,.16), transparent 38%), radial-gradient(at 100% 0%, rgba(14,165,233,.12), transparent 38%), radial-gradient(at 50% 100%, rgba(52,211,153,.07), transparent 48%); pointer-events: none; }
       .head, .tools, .jobs, .foot { position: relative; z-index: 1; }
@@ -33,13 +33,14 @@ function initWorkstation() {
       .tools { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.08); background: rgba(15,23,42,.24); }
       .row { display: flex; gap: 8px; }
       .row + .row { margin-top: 8px; }
-      button, select { border-radius: 12px; border: 1px solid rgba(56,189,248,.22); background: rgba(14,165,233,.08); color: #94a3b8; font-weight: 800; cursor: pointer; }
+      button { border-radius: 12px; border: 1px solid rgba(56,189,248,.22); background: rgba(14,165,233,.08); color: #94a3b8; font-weight: 800; cursor: pointer; }
       button:hover { background: rgba(14,165,233,.15); border-color: rgba(56,189,248,.42); color: #f8fafc; }
-      .primary { color: #38bdf8; border-color: rgba(56,189,248,.35); background: rgba(14,165,233,.12); }
+      .primary, .chip.active, .stage-chip.active { color: #38bdf8; border-color: rgba(56,189,248,.4); background: rgba(14,165,233,.16); box-shadow: 0 10px 24px rgba(14,165,233,.12); }
       .danger { color: #fecaca; border-color: rgba(239,68,68,.32); background: rgba(239,68,68,.12); }
       .tools button { flex: 1; padding: 10px 8px; font-size: 11px; }
-      select { width: 100%; padding: 9px 10px; outline: none; font-size: 12px; }
-      select option { background: #0f172a; color: #f8fafc; }
+      .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+      .chip { min-width: 0; padding: 9px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+      .chip span { display: block; color: #64748b; font-size: 9px; margin-top: 1px; }
       .jobs { overflow: auto; padding: 14px; }
       .job { margin-bottom: 10px; padding: 13px; border-radius: 18px; }
       .job-head { display: flex; align-items: flex-start; gap: 8px; }
@@ -54,16 +55,19 @@ function initWorkstation() {
       .title a:hover { color: #38bdf8; }
       .meta, .pay { font-size: 11px; line-height: 1.45; margin-top: 5px; }
       .pay { color: #64748b; }
-      .job-actions { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 10px; }
-      .job-actions button { padding: 8px 9px; font-size: 10px; }
+      .stage-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
+      .stage-chip { padding: 7px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
+      .job-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+      .job-actions button { padding: 8px 11px; font-size: 10px; }
       .pending { margin-top: 8px; color: #fed7aa; font-size: 10px; font-weight: 800; }
       .empty { margin-top: 40px; text-align: center; font-size: 13px; line-height: 1.5; }
       .foot { padding: 10px 14px 14px; border-top: 1px solid rgba(255,255,255,.08); font-size: 10px; background: rgba(15,23,42,.32); }
+      @media (max-width: 720px) { .panel { width: calc(100vw - 8px); } .chips { grid-template-columns: repeat(3, 1fr); } }
     </style>
     <button class="tab" type="button"><span></span><strong>JobTiered</strong></button>
     <aside class="panel">
       <section class="head"><div class="top"><div><h2>JobTiered</h2><div class="sub">Docked workstation</div></div><button class="close" type="button">×</button></div><div class="stats"><div class="stat"><strong data-stat="saved">0</strong><span>Saved</span></div><div class="stat"><strong data-stat="applied">0</strong><span>Applied</span></div><div class="stat"><strong data-stat="pending">0</strong><span>Pending</span></div></div></section>
-      <section class="tools"><div class="row"><button class="primary" data-action="refresh" type="button">Refresh</button><button data-action="rescan" type="button">Rescan</button><button data-action="settings" type="button">Settings</button></div><div class="row"><select data-filter="stage"><option value="">All stages</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="offer">Offer</option><option value="rejected">Rejected</option></select></div></section>
+      <section class="tools"><div class="row"><button class="primary" data-action="refresh" type="button">Refresh</button><button data-action="rescan" type="button">Rescan</button><button data-action="settings" type="button">Settings</button></div><div class="row chips" data-filter-chips></div></section>
       <section class="jobs" data-jobs></section>
       <section class="foot" data-status>Local data ready.</section>
     </aside>`;
@@ -75,10 +79,13 @@ function initWorkstation() {
   const close = shadow.querySelector('.close');
   const jobsEl = shadow.querySelector('[data-jobs]');
   const statusEl = shadow.querySelector('[data-status]');
-  const stageFilter = shadow.querySelector('[data-filter="stage"]');
+  const filterChips = shadow.querySelector('[data-filter-chips]');
   let savedJobs = [];
   let filterStage = '';
 
+  const STAGES = ['saved', 'applied', 'offer', 'rejected'];
+  const FILTERS = ['', 'saved', 'applied', 'offer', 'rejected'];
+  const labelOf = (stage) => stage ? stage[0].toUpperCase() + stage.slice(1) : 'All';
   const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const tier = (v) => {
     const t = String(v || '?').toUpperCase().replace('~', '').trim();
@@ -98,11 +105,23 @@ function initWorkstation() {
     return (savedJobs || []).map(j => ({ ...j, stage: j.stage || (j.applied ? 'applied' : 'saved') }));
   }
 
+  function renderFilterChips(shaped) {
+    const counts = {
+      '': shaped.length,
+      saved: shaped.filter(j => j.stage === 'saved').length,
+      applied: shaped.filter(j => j.stage === 'applied').length,
+      offer: shaped.filter(j => j.stage === 'offer').length,
+      rejected: shaped.filter(j => j.stage === 'rejected').length
+    };
+    filterChips.innerHTML = FILTERS.map(stage => `<button class="chip ${stage === filterStage ? 'active' : ''}" data-filter-stage="${stage}" type="button">${labelOf(stage)}<span>${counts[stage]}</span></button>`).join('');
+  }
+
   function render() {
     const shaped = shapedJobs();
     shadow.querySelector('[data-stat="saved"]').textContent = shaped.length;
     shadow.querySelector('[data-stat="applied"]').textContent = shaped.filter(j => j.applied || j.stage === 'applied').length;
     shadow.querySelector('[data-stat="pending"]').textContent = shaped.filter(j => !j.applied && j.stage !== 'rejected').length;
+    renderFilterChips(shaped);
     const jobs = (filterStage ? shaped.filter(j => j.stage === filterStage) : shaped).slice().reverse();
 
     if (!jobs.length) {
@@ -112,14 +131,14 @@ function initWorkstation() {
 
     jobsEl.innerHTML = jobs.map(job => {
       const t = tier(job.tier);
-      const rawKey = keyOf(job);
-      const k = esc(rawKey);
+      const k = esc(keyOf(job));
       const stage = job.stage || 'saved';
       const meta = [job.company, job.location].filter(Boolean).join(' · ');
       const pay = [job.pay, job.marketRange ? `Mkt: ${job.marketRange}` : '', job.fit && job.fit !== 'N/A' ? job.fit : ''].filter(Boolean).join(' · ');
       const title = esc(job.title || 'Untitled job');
       const titleHtml = job.url ? `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">${title}</a>` : title;
-      return `<article class="job" data-key="${k}"><div class="job-head"><span class="tier tier-${t}">${t === 'x' ? '?' : t}</span><div class="title">${titleHtml}</div></div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}${pay ? `<div class="pay">${esc(pay)}</div>` : ''}<div class="job-actions"><select data-stage="${k}">${['saved','applied','offer','rejected'].map(s => `<option value="${s}" ${s === stage ? 'selected' : ''}>${s[0].toUpperCase() + s.slice(1)}</option>`).join('')}</select><button class="danger" data-remove="${k}" type="button">Delete</button></div>${job.syncPending ? '<div class="pending">Sync pending</div>' : ''}</article>`;
+      const stageChips = STAGES.map(s => `<button class="stage-chip ${s === stage ? 'active' : ''}" data-stage-key="${k}" data-stage-value="${s}" type="button">${labelOf(s)}</button>`).join('');
+      return `<article class="job" data-key="${k}"><div class="job-head"><span class="tier tier-${t}">${t === 'x' ? '?' : t}</span><div class="title">${titleHtml}</div></div>${meta ? `<div class="meta">${esc(meta)}</div>` : ''}${pay ? `<div class="pay">${esc(pay)}</div>` : ''}<div class="stage-row">${stageChips}</div><div class="job-actions"><button class="danger" data-remove="${k}" type="button">Delete</button></div>${job.syncPending ? '<div class="pending">Sync pending</div>' : ''}</article>`;
     }).join('');
   }
 
@@ -183,13 +202,9 @@ function initWorkstation() {
     if (button.dataset.action === 'refresh') loadJobs(true);
     if (button.dataset.action === 'rescan') { scan(); setStatus('Page rescan requested.'); }
     if (button.dataset.action === 'settings') chrome.runtime.openOptionsPage();
+    if (button.dataset.filterStage !== undefined) { filterStage = button.dataset.filterStage; render(); }
+    if (button.dataset.stageKey) updateStage(button.dataset.stageKey, button.dataset.stageValue);
     if (button.dataset.remove) removeJob(button.dataset.remove);
-  });
-  shadow.addEventListener('change', (e) => {
-    const target = eventElement(e.target);
-    if (!target) return;
-    if (target === stageFilter) { filterStage = stageFilter.value; render(); return; }
-    if (target.dataset.stage) updateStage(target.dataset.stage, target.value);
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.savedJobs) { savedJobs = changes.savedJobs.newValue || []; render(); }
