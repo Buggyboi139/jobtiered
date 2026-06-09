@@ -3,10 +3,7 @@
   "name": "JobTiered",
   "version": "5.0",
   "description": "AI-powered job grading directly on your favorite job search platforms.",
-  "permissions": [
-    "storage",
-    "alarms"
-  ],
+  "permissions": ["storage", "alarms"],
   "host_permissions": [
     "https://openrouter.ai/api/*",
     "https://*.supabase.co/*",
@@ -17,9 +14,7 @@
     "*://*.governmentjobs.com/*",
     "*://*.usajobs.gov/*"
   ],
-  "background": {
-    "service_worker": "background.js"
-  },
+  "background": { "service_worker": "background.js" },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -38,40 +33,39 @@
     "512": "images/android-chrome-512x512.png"
   },
   "options_page": "options.html",
-  "content_scripts": [
-    {
-      "matches": [
-        "*://*.linkedin.com/jobs/*",
-        "*://*.linkedin.com/my-items/saved-jobs/*",
-        "*://*.linkedin.com/feed/*",
-        "*://*.indeed.com/*",
-        "*://*.glassdoor.com/Job/*",
-        "*://*.glassdoor.com/job-listing/*",
-        "*://*.glassdoor.com/Search/*",
-        "*://*.glassdoor.com/Jobs/*",
-        "*://*.glassdoor.com/partner/*",
-        "*://*.ziprecruiter.com/*",
-        "*://*.governmentjobs.com/*",
-        "*://*.usajobs.gov/*"
-      ],
-      "js": [
-        "content/constants.js",
-        "content/utils.js",
-        "content/ui.js",
-        "content/cache.js",
-        "content/keywords.js",
-        "content/platforms/linkedin.js",
-        "content/platforms/indeed.js",
-        "content/platforms/glassdoor.js",
-        "content/platforms/ziprecruiter.js",
-        "content/platforms/usajobs.js",
-        "content/platforms/governmentjobs.js",
-        "content/grading.js",
-        "content/queue.js",
-        "content/scanner.js",
-        "content/main.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+  "content_scripts": [{
+    "matches": [
+      "*://*.linkedin.com/jobs/*",
+      "*://*.linkedin.com/my-items/saved-jobs/*",
+      "*://*.linkedin.com/feed/*",
+      "*://*.indeed.com/*",
+      "*://*.glassdoor.com/Job/*",
+      "*://*.glassdoor.com/job-listing/*",
+      "*://*.glassdoor.com/Search/*",
+      "*://*.glassdoor.com/Jobs/*",
+      "*://*.glassdoor.com/partner/*",
+      "*://*.ziprecruiter.com/*",
+      "*://*.governmentjobs.com/*",
+      "*://*.usajobs.gov/*"
+    ],
+    "js": [
+      "content/constants.js",
+      "content/utils.js",
+      "content/ui.js",
+      "content/cache.js",
+      "content/keywords.js",
+      "content/platforms/linkedin.js",
+      "content/platforms/indeed.js",
+      "content/platforms/glassdoor.js",
+      "content/platforms/glassdoor-patch.js",
+      "content/platforms/ziprecruiter.js",
+      "content/platforms/usajobs.js",
+      "content/platforms/governmentjobs.js",
+      "content/grading.js",
+      "content/queue.js",
+      "content/scanner.js",
+      "content/main.js"
+    ],
+    "run_at": "document_idle"
+  }]
 }
