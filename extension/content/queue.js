@@ -1,18 +1,19 @@
 function enqueueJobs(jobs, type, mode) {
   for (const job of jobs) {
-    const key = hashJob(job.title, job.company) + '-' + type;
+    const key = buildJobCacheKey(job, type, mode);
+    job._cacheKey = key;
     const cached = gradeCache.get(key);
     if (cached) {
       const host = createBadge(job.container, key);
       if (host) {
         renderResult(host, cached, job.isListing);
-        const tierVal = (cached.tier || cached.grade || '?').toString().toLowerCase();
+        const tierVal = normalizeTier(cached.tier || cached.grade).toLowerCase();
         applyDimming(job.isListing ? job.container : getDescriptionBody(), mode, tierVal);
       }
       continue;
     }
-    if (type === 'detail' && pendingDetails.some(q => hashJob(q.title, q.company) + '-detail' === key)) continue;
-    if (type === 'list' && pendingListings.some(q => hashJob(q.title, q.company) + '-list' === key)) continue;
+    if (type === 'detail' && pendingDetails.some(q => q._cacheKey === key || buildJobCacheKey(q, 'detail', mode) === key)) continue;
+    if (type === 'list' && pendingListings.some(q => q._cacheKey === key || buildJobCacheKey(q, 'list', mode) === key)) continue;
 
     const host = createBadge(job.container, key);
     if (!host) continue;
