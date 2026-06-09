@@ -12,8 +12,32 @@ async function checkLicense() {
     'licenseStatus', 'openRouterKey'
   ]);
   if (licenseStatus === 'byok' && openRouterKey) return true;
-  if (licenseStatus === 'valid' || licenseStatus === 'offline') return true;
+  if (licenseStatus === 'valid' || licenseStatus === 'lifetime' || licenseStatus === 'offline') return true;
   return false;
+}
+
+async function saveSyncedJob(localJob, jobData) {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'saveJob', job: jobData });
+    if (response?.error) return;
+
+    const saved = response.job || response.savedJob || response.data || response;
+    const { savedJobs } = await chrome.storage.local.get('savedJobs');
+    const current = savedJobs || [];
+    const idx = current.findIndex(j =>
+      (localJob.dedup_key && j.dedup_key === localJob.dedup_key) ||
+      ((j.url || '') + '|' + (j.title || '')).toLowerCase() === ((localJob.url || '') + '|' + (localJob.title || '')).toLowerCase()
+    );
+    if (idx === -1) return;
+
+    current[idx] = {
+      ...current[idx],
+      id: saved.id || current[idx].id,
+      syncPending: false,
+      serverUpdatedAt: saved.updated_at || saved.created_at || current[idx].serverUpdatedAt
+    };
+    await chrome.storage.local.set({ savedJobs: current });
+  } catch (_) {}
 }
 
 async function gradeBatch(jobs, type) {
@@ -116,19 +140,21 @@ Tier rules:
     }
     parsed = lcKeys(parsed);
 
-    let results = parsed.results && Array.isArray(parsed.results) ? parsed.results
+    const results = parsed.results && Array.isArray(parsed.results) ? parsed.results
       : Array.isArray(parsed) ? parsed : [parsed];
 
     const currentSaved = savedJobs ||[];
     let changed = false;
 
-    results.forEach((result, i) => {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
       const idx = result.job_index !== undefined ? result.job_index : i;
       const job = jobs[idx];
-      if (!job) return;
+      if (!job) continue;
 
-      const tierVal = (result.tier || result.grade || '?').toString().toLowerCase();
-      const jobKey = hashJob(job.title, job.company) + '-' + type;
+      const tierVal = normalizeTier(result.tier || result.grade);
+      result.tier = tierVal;
+      const jobKey = buildJobCacheKey(job, type, mode);
 
       gradeCache.set(jobKey, result);
       renderResult(job._host, result, job.isListing);
@@ -136,15 +162,21 @@ Tier rules:
       const dimmingTarget = job.isListing ? job.container : getDescriptionBody();
       applyDimming(dimmingTarget, mode, tierVal);
 
-      if (type === 'detail' && (tierVal === 's' || tierVal === 'a' || tierVal === 'b')) {
-        const dedupKey = ((job.url || '') + '|' + job.title).toLowerCase();
-        if (!currentSaved.some(s => ((s.url || '') + '|' + s.title).toLowerCase() === dedupKey)) {
+      if (type === 'detail' && (tierVal === 'S' || tierVal === 'A' || tierVal === 'B')) {
+        const dedupKey = buildDedupKey(job);
+        const existing = currentSaved.find(s =>
+          (dedupKey && s.dedup_key === dedupKey) ||
+          ((s.url || '') + '|' + (s.title || '')).toLowerCase() === ((job.url || '') + '|' + job.title).toLowerCase()
+        );
+
+        if (!existing) {
           const jobData = {
             title: job.title.substring(0, 80),
             company: job.company || '',
             location: job.location || '',
             url: job.url || '',
-            tier: tierVal.toUpperCase(),
+            dedup_key: dedupKey,
+            tier: tierVal,
             pay: result.estimated_pay || result.pay || 'Listed',
             marketRange: result.market_range || '',
             fit: result.fit_score || '',
@@ -153,19 +185,19 @@ Tier rules:
             pros: result.pros ||[],
             flags: result.red_flags || result.flags ||[]
           };
-          currentSaved.push({
+          const localJob = {
             ...jobData,
             date: new Date().toISOString().split('T')[0],
             applied: false,
-            stage: 'saved'
-          });
+            stage: 'saved',
+            syncPending: true
+          };
+          currentSaved.push(localJob);
           changed = true;
-          try {
-            chrome.runtime.sendMessage({ action: 'saveJob', job: jobData });
-          } catch (_) {}
+          saveSyncedJob(localJob, jobData);
         }
       }
-    });
+    }
 
     if (changed) {
       while (currentSaved.length > 200) currentSaved.shift();
