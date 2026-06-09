@@ -1,3 +1,16 @@
+function ensureLinkedInBadgeSlot(root, label) {
+  if (!root) return null;
+  const existing = root.querySelector(':scope > .jtr-linkedin-badge-slot');
+  if (existing) return existing;
+
+  const slot = document.createElement('div');
+  slot.className = 'jtr-linkedin-badge-slot';
+  slot.setAttribute('data-jtr-slot', label || 'linkedin');
+  slot.style.cssText = 'display:flex!important;align-items:center!important;gap:6px!important;margin:4px 0 6px 0!important;min-height:24px!important;overflow:visible!important;position:relative!important;z-index:10000!important;pointer-events:auto!important;';
+  root.prepend(slot);
+  return slot;
+}
+
 function getLinkedInDetailJob() {
   const description = qText(document,[
     '[data-test-id="expandable-text-box"]',
@@ -54,11 +67,13 @@ function getLinkedInDetailJob() {
   }
 
   const h1El = document.querySelector('h1');
-  const container = qFirst(document,[
+  const headerRoot = qFirst(document,[
     '.job-details-jobs-unified-top-card__content--two-pane',
     '.jobs-unified-top-card__content--two-pane',
+    '.job-details-jobs-unified-top-card__primary-description-container',
     '.jobs-details__main-content'
-  ]) || h1El?.parentElement?.parentElement || h1El?.parentElement;
+  ]) || h1El?.closest('section,div') || h1El?.parentElement;
+  const container = ensureLinkedInBadgeSlot(headerRoot, 'detail') || headerRoot;
 
   return { title, company, location, container, description };
 }
@@ -77,7 +92,6 @@ function getLinkedInListingJobs(jobs) {
 
   if (cards.length > 0) {
     cards.forEach(card => {
-      if (card.querySelector('span[data-jtr-id]')) return;
       const titleEl = qFirst(card,[
         'a.job-card-list__title--link strong',
         '.artdeco-entity-lockup__title a',
@@ -100,7 +114,8 @@ function getLinkedInListingJobs(jobs) {
         '.artdeco-entity-lockup__caption'
       ]) || '';
       const snippet = card.innerText?.trim() || '';
-      const badgeContainer = titleEl?.closest('h3,h2,div') || titleEl?.parentElement || card;
+      const slotRoot = titleEl?.closest('.job-card-container, .scaffold-layout__list-item, li, article') || card;
+      const badgeContainer = ensureLinkedInBadgeSlot(slotRoot, 'listing') || slotRoot;
       jobs.push({ title, description: snippet.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: jobUrl });
     });
   }
@@ -113,7 +128,6 @@ function getLinkedInListingJobs(jobs) {
       if (seenUrls.has(href)) return;
       const li = link.closest('li');
       if (!li) return;
-      if (li.querySelector('span[data-jtr-id]')) return;
       const title = link.innerText?.trim() || li.querySelector('strong')?.innerText?.trim() || '';
       if (!title || title.length < 3) return;
       seenUrls.add(href);
@@ -137,7 +151,7 @@ function getLinkedInListingJobs(jobs) {
       const locMatch = liText.match(/([A-Z][a-zA-Z\s]+,\s*[A-Z]{2})\s*\(?/);
       if (locMatch) location = locMatch[1].trim();
 
-      const badgeContainer = link.closest('div') || link.parentElement || li;
+      const badgeContainer = ensureLinkedInBadgeSlot(li, 'listing-fallback') || li;
       jobs.push({ title, description: liText.slice(0, 1200), container: badgeContainer, isListing: true, company, location, url: href });
     });
   }
