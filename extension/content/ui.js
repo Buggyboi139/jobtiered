@@ -6,7 +6,7 @@ function initTooltip() {
   globalTooltip = document.createElement('div');
   globalTooltip.id = 'jtr-global-tooltip';
   globalTooltip.style.cssText = `
-    visibility:hidden; width:360px;
+    visibility:hidden; width:min(360px, calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow-y:auto;
     background:rgba(15,15,20,0.97);
     backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
     color:#e8e8f0; text-align:left;
@@ -23,18 +23,29 @@ function initTooltip() {
 function showTooltip(e, html) {
   if (!globalTooltip) initTooltip();
   globalTooltip.innerHTML = html;
-  globalTooltip.style.visibility = 'visible';
-  globalTooltip.style.opacity = '1';
-  let x = e.clientX + 16;
-  let y = e.clientY + 16;
   globalTooltip.style.left = '0px';
   globalTooltip.style.top = '0px';
-  const tw = globalTooltip.offsetWidth || 360;
-  const th = globalTooltip.offsetHeight || 200;
-  if (x + tw > window.innerWidth) x = e.clientX - tw - 12;
-  if (y + th > window.innerHeight) y = window.innerHeight - th - 10;
-  globalTooltip.style.left = Math.max(4, x) + 'px';
-  globalTooltip.style.top = Math.max(4, y) + 'px';
+  globalTooltip.style.visibility = 'visible';
+  globalTooltip.style.opacity = '1';
+
+  const margin = 8;
+  const pointerX = e?.clientX ?? window.innerWidth / 2;
+  const pointerY = e?.clientY ?? window.innerHeight / 2;
+  const rect = globalTooltip.getBoundingClientRect();
+  const tw = rect.width || Math.min(360, window.innerWidth - margin * 2);
+  const th = rect.height || 200;
+
+  let x = pointerX + 16;
+  let y = pointerY + 16;
+
+  if (x + tw + margin > window.innerWidth) x = pointerX - tw - 12;
+  if (y + th + margin > window.innerHeight) y = pointerY - th - 12;
+
+  x = Math.min(Math.max(margin, x), Math.max(margin, window.innerWidth - tw - margin));
+  y = Math.min(Math.max(margin, y), Math.max(margin, window.innerHeight - th - margin));
+
+  globalTooltip.style.left = `${x}px`;
+  globalTooltip.style.top = `${y}px`;
 }
 
 function hideTooltip() {
@@ -69,7 +80,7 @@ const BADGE_STYLES = `
 
 function tierColor(tier) {
   const map = { S: '#fbbf24', A: '#4ade80', B: '#4a9eff', C: '#fb923c', D: '#f87171', F: '#ff6b6b' };
-  return map[tier?.toUpperCase().replace('~', '')] || '#9090a0';
+  return map[normalizeTier(tier)] || '#9090a0';
 }
 
 function buildTooltipHtml(result, isListing) {
@@ -77,9 +88,9 @@ function buildTooltipHtml(result, isListing) {
   const market = escapeHtml(result.market_range || '');
   const fit = result.fit_score && result.fit_score !== 'N/A' ? escapeHtml(result.fit_score) : '';
   const reasoning = escapeHtml(result.reasoning || 'None provided');
-  const tierRaw = (result.tier || result.grade || '?').toUpperCase();
-  const color = tierColor(tierRaw);
-  const displayTier = isListing ? `~${tierRaw}` : tierRaw;
+  const tier = normalizeTier(result.tier || result.grade);
+  const color = tierColor(tier);
+  const displayTier = isListing ? `~${tier}` : tier;
 
   const warningBanner = isListing ? `
     <div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);padding:8px 10px;border-radius:6px;margin-bottom:12px;color:#fb923c;font-size:11px;line-height:1.4;">
@@ -88,7 +99,7 @@ function buildTooltipHtml(result, isListing) {
 
   const headerHtml = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);">
-      <span style="font-size:22px;font-weight:900;color:${color};text-shadow:0 0 12px ${color}40;">${displayTier}</span>
+      <span style="font-size:22px;font-weight:900;color:${color};text-shadow:0 0 12px ${color}40;">${escapeHtml(displayTier)}</span>
       <div style="flex:1;">
         <div style="color:#e8e8f0;font-size:12px;"><strong style="color:${color};">Pay:</strong> ${pay}</div>
         ${market ? `<div style="color:#9090a0;font-size:11px;">Market: ${market}</div>` : ''}
@@ -147,9 +158,10 @@ function renderResult(host, result, isListing) {
   if (!host || !result) return;
   const b = host.shadowRoot?.getElementById('b');
   if (!b) return;
-  const tierRaw = (result.tier || result.grade || '?').toString().toUpperCase().trim();
-  b.className = `badge tier-${tierRaw}`;
-  b.textContent = isListing ? `~${tierRaw}` : tierRaw;
+  const tier = normalizeTier(result.tier || result.grade);
+  result.tier = tier;
+  b.className = `badge tier-${tier}`;
+  b.textContent = isListing ? `~${tier}` : tier;
   host._tip = buildTooltipHtml(result, isListing);
 }
 
@@ -165,6 +177,7 @@ function renderError(host, msg) {
 
 function applyDimming(element, mode, tierVal) {
   if (!element) return;
+  const normalized = normalizeTier(tierVal).toLowerCase();
   element.style.transition = 'opacity 0.35s ease';
-  element.style.opacity = (mode === 'personal' && (tierVal === 'd' || tierVal === 'f')) ? '0.22' : '1';
+  element.style.opacity = (mode === 'personal' && (normalized === 'd' || normalized === 'f')) ? '0.22' : '1';
 }
