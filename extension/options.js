@@ -4,16 +4,22 @@ const STRIPE_SUB_LINK = "https://buy.stripe.com/14A5kE3lY0Fe4oy2L493y01";
 const STRIPE_BYOK_LINK = "https://buy.stripe.com/14A28scWy2Nm6wGbhA93y00";
 const CANCEL_SUB_LINK = "https://billing.stripe.com/p/login/14A28scWy2Nm6wGbhA93y00";
 
+function $(id) { return document.getElementById(id); }
+
+function isManagedStatus(status) {
+  return status === 'valid' || status === 'lifetime' || status === 'offline';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await chrome.storage.local.get([
     'openRouterKey', 'currentSalary', 'minSalary', 'resumeText',
     'session', 'licenseStatus', 'licensePlan'
   ]);
 
-  if (data.openRouterKey) document.getElementById('apiKey').value = data.openRouterKey;
-  if (data.currentSalary) document.getElementById('currentSalary').value = data.currentSalary;
-  if (data.minSalary)     document.getElementById('minSalary').value = data.minSalary;
-  if (data.resumeText)    document.getElementById('resumeText').value = data.resumeText;
+  if (data.openRouterKey) $('apiKey').value = data.openRouterKey;
+  if (data.currentSalary) $('currentSalary').value = data.currentSalary;
+  if (data.minSalary) $('minSalary').value = data.minSalary;
+  if (data.resumeText) $('resumeText').value = data.resumeText;
 
   renderLicenseStatus(data.licenseStatus, data.licensePlan, data.session);
 
@@ -24,31 +30,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function toggleToSignup() {
-  document.getElementById('errBanner').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('signupForm').style.display = 'block';
-  document.getElementById('signupEmail').value = '';
-  document.getElementById('signupPassword').value = '';
-  document.getElementById('signupConfirmPassword').value = '';
+  $('errBanner').style.display = 'none';
+  $('loginForm').style.display = 'none';
+  $('signupForm').style.display = 'block';
+  $('signupEmail').value = '';
+  $('signupPassword').value = '';
+  $('signupConfirmPassword').value = '';
 }
 
 function toggleToLogin() {
-  document.getElementById('errBanner').style.display = 'none';
-  document.getElementById('signupForm').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'block';
+  $('errBanner').style.display = 'none';
+  $('signupForm').style.display = 'none';
+  $('loginForm').style.display = 'block';
 }
 
-document.getElementById('showSignupLink').addEventListener('click', (e) => {
+$('showSignupLink').addEventListener('click', (e) => {
   e.preventDefault();
   toggleToSignup();
 });
 
-document.getElementById('backToLoginLink').addEventListener('click', (e) => {
+$('backToLoginLink').addEventListener('click', (e) => {
   e.preventDefault();
   toggleToLogin();
 });
 
-document.getElementById('buySubBtn').addEventListener('click', async () => {
+$('buySubBtn').addEventListener('click', async () => {
   const { session } = await chrome.storage.local.get('session');
   if (session?.user?.id) {
     window.open(`${STRIPE_SUB_LINK}?client_reference_id=${session.user.id}`, '_blank');
@@ -57,7 +63,7 @@ document.getElementById('buySubBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('buyByokBtn').addEventListener('click', async () => {
+$('buyByokBtn').addEventListener('click', async () => {
   const { session } = await chrome.storage.local.get('session');
   if (session?.user?.id) {
     window.open(`${STRIPE_BYOK_LINK}?client_reference_id=${session.user.id}`, '_blank');
@@ -66,16 +72,16 @@ document.getElementById('buyByokBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('loginBtn').addEventListener('click', async () => {
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value.trim();
-  const btn = document.getElementById('loginBtn');
+$('loginBtn').addEventListener('click', async () => {
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  const btn = $('loginBtn');
 
-  document.getElementById('errBanner').style.display = 'none';
+  $('errBanner').style.display = 'none';
 
   if (!email || !password) { showErr('Enter email and password.'); return; }
 
-  btn.textContent = 'Signing in\u2026';
+  btn.textContent = 'Signing in…';
   btn.disabled = true;
 
   try {
@@ -95,7 +101,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     }
 
     await chrome.storage.local.set({ session: data });
-    document.getElementById('onboardingBanner').style.display = 'none';
+    $('onboardingBanner').style.display = 'none';
 
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
 
@@ -110,13 +116,13 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('signupBtn').addEventListener('click', async () => {
-  const email = document.getElementById('signupEmail').value.trim();
-  const password = document.getElementById('signupPassword').value;
-  const confirm = document.getElementById('signupConfirmPassword').value;
-  const btn = document.getElementById('signupBtn');
+$('signupBtn').addEventListener('click', async () => {
+  const email = $('signupEmail').value.trim();
+  const password = $('signupPassword').value;
+  const confirm = $('signupConfirmPassword').value;
+  const btn = $('signupBtn');
 
-  document.getElementById('errBanner').style.display = 'none';
+  $('errBanner').style.display = 'none';
 
   if (!email || !password || !confirm) {
     showErr('Please fill in all fields.');
@@ -138,7 +144,7 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
     return;
   }
 
-  btn.textContent = 'Creating account\u2026';
+  btn.textContent = 'Creating account…';
   btn.disabled = true;
 
   try {
@@ -164,11 +170,11 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
       const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
       renderLicenseStatus(response?.licenseStatus || 'invalid', response?.licensePlan, data);
 
-      document.getElementById('onboardingBanner').style.display = 'block';
+      $('onboardingBanner').style.display = 'block';
       showToast('Account created. Choose a plan to get started.', 'success');
     } else {
       toggleToLogin();
-      document.getElementById('loginEmail').value = email;
+      $('loginEmail').value = email;
       showErr('Account created. Check your email to confirm your address, then sign in.');
     }
 
@@ -180,21 +186,21 @@ document.getElementById('signupBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', async () => {
+$('logoutBtn').addEventListener('click', async () => {
   await chrome.storage.local.remove(['session', 'licenseStatus', 'licensePlan']);
-  document.getElementById('loginEmail').value = '';
-  document.getElementById('loginPassword').value = '';
-  document.getElementById('errBanner').style.display = 'none';
-  document.getElementById('onboardingBanner').style.display = 'none';
+  $('loginEmail').value = '';
+  $('loginPassword').value = '';
+  $('errBanner').style.display = 'none';
+  $('onboardingBanner').style.display = 'none';
   renderLicenseStatus('none', null, null);
   showToast('Signed out.', 'success');
 });
 
-document.getElementById('saveSettings').addEventListener('click', async () => {
-  const apiKey     = document.getElementById('apiKey').value.trim();
-  const salary     = document.getElementById('currentSalary').value;
-  const minSalary  = document.getElementById('minSalary').value;
-  const resumeText = document.getElementById('resumeText').value;
+$('saveSettings').addEventListener('click', async () => {
+  const apiKey     = $('apiKey').value.trim();
+  const salary     = $('currentSalary').value;
+  const minSalary  = $('minSalary').value;
+  const resumeText = $('resumeText').value;
 
   const payload = {
     currentSalary: salary,
@@ -212,9 +218,9 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   showToast('Settings saved. Cache cleared.', 'success');
 });
 
-document.getElementById('refreshStatusBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('refreshStatusBtn');
-  btn.textContent = 'Checking\u2026';
+$('refreshStatusBtn').addEventListener('click', async () => {
+  const btn = $('refreshStatusBtn');
+  btn.textContent = 'Checking…';
   btn.disabled = true;
   try {
     const response = await chrome.runtime.sendMessage({ action: 'validateLicense' });
@@ -227,32 +233,32 @@ document.getElementById('refreshStatusBtn').addEventListener('click', async () =
   }
 });
 
-document.getElementById('cancelSubBtn').addEventListener('click', () => {
+$('cancelSubBtn').addEventListener('click', () => {
   window.open(CANCEL_SUB_LINK, '_blank');
 });
 
-document.getElementById('deleteAccountBtn').addEventListener('click', () => {
-  document.getElementById('deleteConfirmOverlay').classList.add('visible');
+$('deleteAccountBtn').addEventListener('click', () => {
+  $('deleteConfirmOverlay').classList.add('visible');
 });
 
-document.getElementById('deleteConfirmCancel').addEventListener('click', () => {
-  document.getElementById('deleteConfirmOverlay').classList.remove('visible');
+$('deleteConfirmCancel').addEventListener('click', () => {
+  $('deleteConfirmOverlay').classList.remove('visible');
 });
 
-document.getElementById('deleteConfirmProceed').addEventListener('click', async () => {
-  document.getElementById('deleteConfirmOverlay').classList.remove('visible');
+$('deleteConfirmProceed').addEventListener('click', async () => {
+  $('deleteConfirmOverlay').classList.remove('visible');
   await handleDeleteAccount();
 });
 
-document.getElementById('deleteConfirmOverlay').addEventListener('click', (e) => {
+$('deleteConfirmOverlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) {
     e.currentTarget.classList.remove('visible');
   }
 });
 
 async function handleDeleteAccount() {
-  const btn = document.getElementById('deleteAccountBtn');
-  btn.textContent = 'Deleting\u2026';
+  const btn = $('deleteAccountBtn');
+  btn.textContent = 'Deleting…';
   btn.disabled = true;
 
   try {
@@ -268,12 +274,12 @@ async function handleDeleteAccount() {
 
     setTimeout(() => {
       renderLicenseStatus('none', null, null);
-      document.getElementById('loginEmail').value = '';
-      document.getElementById('loginPassword').value = '';
-      document.getElementById('apiKey').value = '';
-      document.getElementById('currentSalary').value = '';
-      document.getElementById('minSalary').value = '';
-      document.getElementById('resumeText').value = '';
+      $('loginEmail').value = '';
+      $('loginPassword').value = '';
+      $('apiKey').value = '';
+      $('currentSalary').value = '';
+      $('minSalary').value = '';
+      $('resumeText').value = '';
     }, 500);
   } catch (err) {
     showToast(`Delete failed: ${err.message}`, 'error');
@@ -284,17 +290,17 @@ async function handleDeleteAccount() {
 }
 
 function renderLicenseStatus(status, plan, session) {
-  const box  = document.getElementById('licenseStatusBox');
-  const text = document.getElementById('licenseStatusText');
-  const sub  = document.getElementById('licenseStatusSub');
-  const loginForm = document.getElementById('loginForm');
-  const signupForm = document.getElementById('signupForm');
-  const loggedInView = document.getElementById('loggedInView');
-  const userEmail = document.getElementById('userEmail');
-  const purchaseOptions = document.getElementById('purchaseOptions');
-  const dangerZone = document.getElementById('dangerZone');
-  const byokSection = document.getElementById('byokSection');
-  const cancelBtn = document.getElementById('cancelSubBtn');
+  const box  = $('licenseStatusBox');
+  const text = $('licenseStatusText');
+  const sub  = $('licenseStatusSub');
+  const loginForm = $('loginForm');
+  const signupForm = $('signupForm');
+  const loggedInView = $('loggedInView');
+  const userEmail = $('userEmail');
+  const purchaseOptions = $('purchaseOptions');
+  const dangerZone = $('dangerZone');
+  const byokSection = $('byokSection');
+  const cancelBtn = $('cancelSubBtn');
 
   byokSection.style.display = 'none';
   cancelBtn.style.display = 'none';
@@ -302,7 +308,7 @@ function renderLicenseStatus(status, plan, session) {
   if (!session?.access_token) {
     box.className = 'status-box none';
     text.textContent = 'Not logged in';
-    sub.textContent  = 'Sign in or create a free account to get started';
+    sub.textContent  = 'Sign in or create an account to get started';
     loginForm.style.display = 'block';
     signupForm.style.display = 'none';
     loggedInView.style.display = 'none';
@@ -323,17 +329,27 @@ function renderLicenseStatus(status, plan, session) {
     sub.textContent  = 'Your Pro account is in good standing. AI grading uses the managed API.';
     purchaseOptions.style.display = 'none';
     cancelBtn.style.display = 'block';
-    document.getElementById('onboardingBanner').style.display = 'none';
+    $('onboardingBanner').style.display = 'none';
+    return;
+  }
+
+  if (status === 'lifetime') {
+    box.className = 'status-box valid';
+    text.textContent = 'Lifetime License';
+    sub.textContent  = 'Your lifetime license is active. AI grading uses the managed API.';
+    purchaseOptions.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    $('onboardingBanner').style.display = 'none';
     return;
   }
 
   if (status === 'byok') {
     box.className = 'status-box byok';
     text.textContent = 'BYOK License';
-    sub.textContent  = 'Provide your own OpenRouter API key below. You do not have access to the managed API.';
+    sub.textContent  = 'Your license is active, but AI calls require your own OpenRouter API key.';
     purchaseOptions.style.display = 'none';
     byokSection.style.display = 'block';
-    document.getElementById('onboardingBanner').style.display = 'none';
+    $('onboardingBanner').style.display = 'none';
     return;
   }
 
@@ -343,7 +359,7 @@ function renderLicenseStatus(status, plan, session) {
     sub.textContent  = 'Your subscription payment failed. Please update your payment method to restore access.';
     purchaseOptions.style.display = 'none';
     cancelBtn.style.display = 'block';
-    document.getElementById('onboardingBanner').style.display = 'none';
+    $('onboardingBanner').style.display = 'none';
     return;
   }
 
@@ -356,14 +372,14 @@ function renderLicenseStatus(status, plan, session) {
 }
 
 function showErr(msg) {
-  const el = document.getElementById('errBanner');
+  const el = $('errBanner');
   el.textContent = msg;
   el.style.display = 'block';
 }
 
 let toastTimer = null;
 function showToast(msg, type) {
-  const el = document.getElementById('toast');
+  const el = $('toast');
   el.textContent = msg;
   el.className = type;
   void el.offsetWidth;
